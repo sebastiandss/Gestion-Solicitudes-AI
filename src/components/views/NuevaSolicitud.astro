@@ -208,11 +208,10 @@
       </div>`;
 
     try {
-      const response = await fetch('https://api.deepseek.com/chat/completions', {
+      const response = await fetch('/api/deepseek', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer sk-53dd7b237c854688aaf4c82f3956c9c0'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           model: "deepseek-chat",
