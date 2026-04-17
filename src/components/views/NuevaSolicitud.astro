@@ -1,0 +1,317 @@
+---
+// NuevaSolicitud.astro
+---
+
+<div id="view-nueva" style="display:none;">
+  <form id="form-nueva-sol" class="card" onsubmit="submitNuevaSolicitud(event)">
+    <div class="sec-title">
+      <span class="sec-title-dot"></span> Nueva solicitud de auxilio
+    </div>
+
+    <!-- Selector de tipo principal visible como tabs -->
+    <div class="s-tabs" id="sTabs">
+      <button type="button" class="s-tab active" data-tipo="Calamidad" onclick="selTipo(this,'Calamidad')">
+        Calamidad
+      </button>
+      <button type="button" class="s-tab" data-tipo="Enfermedad" onclick="selTipo(this,'Enfermedad')">Enfermedad</button>
+      <button type="button" class="s-tab" data-tipo="Educación" onclick="selTipo(this,'Educación')">Educación</button>
+      <button type="button" class="s-tab" data-tipo="Natalidad" onclick="selTipo(this,'Natalidad')">Natalidad</button>
+      <button type="button" class="s-tab" data-tipo="Fallecimiento" onclick="selTipo(this,'Fallecimiento')">
+        Fallecimiento
+      </button>
+    </div>
+    <!-- hidden input to store active tab type and risk level -->
+    <input type="hidden" id="tipoPrincipal" value="Calamidad" />
+    <input type="hidden" id="factibilidadNivel" value="" />
+
+    <!-- Campos del formulario -->
+    <div class="form-row">
+      <div>
+        <label class="flabel">Tipo de evento</label>
+        <select class="fselect" id="tipoEvento" required>
+          <option value="">Seleccione una opción</option>
+          <option>Desastre natural</option>
+          <option>Incendio de vivienda</option>
+          <option>Desplazamiento forzado</option>
+          <option>Pérdida total de bienes</option>
+        </select>
+      </div>
+      <div>
+        <label class="flabel">Fecha del evento</label>
+        <input class="finput" type="date" id="fechaEvento" required />
+      </div>
+    </div>
+    <div class="form-row-1">
+      <label class="flabel">Descripción de la situación</label>
+      <textarea
+        class="ftextarea"
+        id="descripcionEvento"
+        rows="2"
+        style="overflow: hidden; resize: none; min-height: 80px;"
+        required
+        placeholder="Describa su situación con el mayor detalle posible. La IA analizará su caso automáticamente para agilizar la evaluación..."
+        oninput="handleDescInput()"
+        onblur="handleDescBlur()"
+      ></textarea>
+      <div id="ai-status-indicator" style="font-size: 11px; color: var(--teal-400); margin-top: 6px; font-style: italic; display: none;">
+        ✨ Analizando automáticamente tu caso...
+      </div>
+    </div>
+
+    <!-- Carga de documentos -->
+    <div class="upload-box" onclick="alert('Seleccionar archivo...')">
+      <div class="upl-text">Adjuntar documentos</div>
+      <div class="upl-sub">
+        Cédula, certificados, soportes del evento · PDF, JPG, PNG — máximo 20 MB
+        por archivo
+      </div>
+    </div>
+
+    <!-- Lista de requisitos -->
+    <div class="sec-title" style="font-size:12px;margin-bottom:8px;">
+      <span class="sec-title-dot"></span> Documentos requeridos
+    </div>
+    <div class="req-list" id="dynamic-req-list">
+      <div style="font-size: 11px; color: var(--text-secondary); font-style: italic;">
+        Selecciona un tipo de evento para ver los documentos específicos requeridos.
+      </div>
+    </div>
+
+    <button type="submit" class="submit-btn" id="btn-submit-solicitud">
+      Enviar solicitud para evaluación IA
+    </button>
+    <button type="button" class="cancel-btn" onclick="switchTab('tramites')"
+      >Cancelar — volver a mis trámites</button
+    >
+  </form>
+</div>
+
+<script is:inline>
+  function selTipo(el, tipo) {
+    document
+      .querySelectorAll("#sTabs .s-tab")
+      .forEach((t) => t.classList.remove("active"));
+    el.classList.add("active");
+    document.getElementById("tipoPrincipal").value = tipo;
+
+    const opciones = {
+      Calamidad: [
+        "Desastre natural",
+        "Incendio de vivienda",
+        "Desplazamiento forzado",
+        "Pérdida total de bienes",
+      ],
+      Enfermedad: [
+        "Enfermedad grave o crónica",
+        "Hospitalización prolongada",
+        "Tratamiento oncológico",
+        "Cirugía de alto costo",
+      ],
+      Educación: [
+        "Matrícula universitaria",
+        "Útiles y materiales escolares",
+        "Transporte escolar",
+        "Beca de estudios",
+      ],
+      Natalidad: ["Parto reciente", "Adopción", "Embarazo de alto riesgo"],
+      Fallecimiento: [
+        "Gastos funerarios",
+        "Apoyo familiar por pérdida",
+        "Seguro de vida por fallecimiento",
+      ],
+    };
+
+    const sel = document.getElementById("tipoEvento");
+    sel.innerHTML = '<option value="">Seleccione una opción</option>';
+    (opciones[tipo] || []).forEach((o) => {
+      const opt = document.createElement("option");
+      opt.textContent = o;
+      opt.value = o;
+      sel.appendChild(opt);
+    });
+  }
+
+  function submitNuevaSolicitud(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btn-submit-solicitud');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = 'Enviando...';
+    btn.disabled = true;
+
+    // Recolectar datos
+    const tipo = document.getElementById("tipoPrincipal").value;
+    const subTipo = document.getElementById("tipoEvento").value;
+    const descripcion = document.getElementById("descripcionEvento").value;
+
+    const dateOptions = { day: '2-digit', month: 'short', year: 'numeric' };
+    const dateFormatted = new Date().toLocaleDateString('es-CO', dateOptions);
+
+    const nuevoTramite = {
+      id: Date.now(),
+      name: "Auxilio por " + subTipo.toLowerCase(),
+      estado: "En estudio",
+      estadoClass: "b-amber",
+      progClass: "pb-amber",
+      progWidth: "30", // Progress for "En estudio"
+      tipoBadge: tipo,
+      fechaText: "Radicado " + dateFormatted,
+      stepText: "Validación inicial IA · En progreso",
+      actionText: "Ver detalle",
+      descripcion: descripcion,
+      riesgo: document.getElementById("factibilidadNivel").value
+    };
+
+    setTimeout(() => {
+      // Guardar en localStorage
+      let tramites = JSON.parse(localStorage.getItem('tramites') || '[]');
+      // Insertar al inicio de la lista
+      tramites.unshift(nuevoTramite);
+      localStorage.setItem('tramites', JSON.stringify(tramites));
+
+      // Generar notificacion
+      let notifs = JSON.parse(localStorage.getItem('notificaciones') || '[]');
+      notifs.unshift({
+        iconClass: "b-blue",
+        iconText: "N",
+        messageHtml: `Nueva solicitud radicada: <strong>Auxilio por ${subTipo.toLowerCase()}</strong>. En espera de evaluación.`,
+        time: "Justo ahora"
+      });
+      localStorage.setItem('notificaciones', JSON.stringify(notifs));
+      window.dispatchEvent(new Event('notifsUpdated'));
+
+      // Limpiar formulario y restaurar botón
+      document.getElementById('form-nueva-sol').reset();
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+
+      // Disparar evento personalizado para que MisTramites lo atrape y recargue
+      window.dispatchEvent(new Event('tramitesUpdated'));
+
+      // Mandar a la vista de trámites
+      switchTab('tramites');
+    }, 800); // 800ms de simulacion
+  }
+
+  async function analizarConIA() {
+    const descripcion = document.getElementById('descripcionEvento').value;
+    const subTipo = document.getElementById('tipoEvento').value;
+    const indicator = document.getElementById('ai-status-indicator');
+    const reqList = document.getElementById('dynamic-req-list');
+
+    if (!descripcion || !subTipo) return;
+
+    indicator.style.display = 'block';
+    indicator.textContent = '✨ Analizando automáticamente tu caso...';
+    
+    reqList.innerHTML = `<div style="font-size: 12px; color: var(--blue-600); text-align: center; padding: 10px;">
+        Generando recomendaciones de documentos con IA...
+      </div>`;
+
+    try {
+      const response = await fetch('https://api.deepseek.com/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer sk-53dd7b237c854688aaf4c82f3956c9c0'
+        },
+        body: JSON.stringify({
+          model: "deepseek-chat",
+          messages: [
+            {
+              role: "system", 
+              content: "Eres un asistente del portal BeneficIA. Tu tarea es analizar la situación reportada por el usuario para solicitar un auxilio cooperativo. Responde de manera amable y MUY BREVE. Primero indica claramente el nivel de FACTIBILIDAD (Alta, Media o Baja) explicando en una frase por qué. Segundo, proporciona una lista simple (con el guión medio '-') de los 2 o 3 documentos críticos requeridos. NO uses negritas (asteriscos dobles) ni hashtags, redacta en texto totalmente plano."
+            },
+            {
+              role: "user",
+              content: `Tipo de auxilio solicitado: ${subTipo}. Descripción del usuario: ${descripcion}`
+            }
+          ],
+          temperature: 0.3
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error.message);
+      }
+      
+      const iaText = data.choices[0].message.content;
+      
+      // format as simple html and strip common markdown characters just in case
+      const cleanText = iaText.replace(/[*_#`~>]/g, '');
+      
+      const matchRiesgo = cleanText.match(/FACTIBILIDAD(?:\\s*:\\s*|\\s+)(Alta|Media|Baja)/i);
+      if (matchRiesgo) {
+         document.getElementById('factibilidadNivel').value = matchRiesgo[1];
+      }
+      
+      const formattedHTML = cleanText
+        .split('\n')
+        .map(line => {
+           line = line.trim();
+           if (line.startsWith('-')) {
+             return `<div class="req-item"><span class="req-pend" style="color:var(--teal-400);">✦</span> ${line.substring(1).trim()}</div>`;
+           } else if (line.length > 0) {
+             return `<div style="font-size: 13px; color: var(--text-primary); margin-bottom: 8px;">${line}</div>`;
+           }
+           return '';
+        })
+        .join('');
+
+      reqList.innerHTML = `<div style="padding: 10px; background: var(--teal-50); border: 0.5px solid var(--teal-400); border-radius: var(--radius-md);">${formattedHTML}</div>`;
+
+      // Dispatch AI generation notification
+      let notifs = JSON.parse(localStorage.getItem('notificaciones') || '[]');
+      notifs.unshift({
+        iconClass: "b-amber",
+        iconText: "AI",
+        messageHtml: `Análisis de validación preliminar completado por IA. Factibilidad calculada: <strong>${matchRiesgo ? matchRiesgo[1] : 'Evaluada'}</strong>.`,
+        time: "Justo ahora"
+      });
+      localStorage.setItem('notificaciones', JSON.stringify(notifs));
+      window.dispatchEvent(new Event('notifsUpdated'));
+
+    } catch(err) {
+      console.error(err);
+      reqList.innerHTML = `<div style="font-size: 12px; color: var(--red-400); text-align: center; padding: 10px;">
+        Hubo un error contactando a la IA. Revisa la consola para más detalles.
+      </div>`;
+    } finally {
+      indicator.textContent = '✨ Análisis de factibilidad completado.';
+      setTimeout(() => { indicator.style.display = 'none'; }, 2000);
+    }
+  }
+
+  // Auto-analysis debounce logic
+  let aiAnalyzeTimeout = null;
+
+  function handleDescInput() {
+    const descInput = document.getElementById('descripcionEvento');
+    if (!descInput) return;
+    
+    // Auto-resize logic
+    descInput.style.height = 'auto';
+    descInput.style.height = descInput.scrollHeight + 'px';
+    
+    if (aiAnalyzeTimeout) clearTimeout(aiAnalyzeTimeout);
+    
+    const text = descInput.value.trim();
+    if (text.length > 10) {
+      aiAnalyzeTimeout = setTimeout(() => {
+        analizarConIA();
+      }, 2000);
+    }
+  }
+
+  function handleDescBlur() {
+    const descInput = document.getElementById('descripcionEvento');
+    if (!descInput) return;
+    
+    const text = descInput.value.trim();
+    if (text.length > 10) {
+      if (aiAnalyzeTimeout) clearTimeout(aiAnalyzeTimeout);
+      analizarConIA();
+    }
+  }
+</script>

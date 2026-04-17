@@ -1,0 +1,27 @@
+---
+// TopBar.astro
+export interface Props {
+  initials?: string;
+  name?: string;
+  idInfo?: string;
+}
+
+const {
+  initials = "ML",
+  name = "María López Herrera",
+  idInfo = "CC 1.052.487.903 · Afiliada activa",
+} = Astro.props;
+---
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="avatar">{initials}</div>
+    <div>
+      <div class="topbar-name">{name}</div>
+      <div class="topbar-id">{idInfo}</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <button class="logout-btn" onclick="logoutFunc()">Cerrar sesión</button>
+  </div>
+</div>

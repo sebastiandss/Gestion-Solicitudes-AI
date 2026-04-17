@@ -1,0 +1,327 @@
+---
+// MisTramites.astro
+---
+
+<div id="view-tramites">
+  <div class="summary-grid">
+    <div class="sum-card">
+      <div class="sum-label">Trámites totales</div>
+      <div class="sum-val" id="stat-totales">0</div>
+      <div class="sum-sub" id="stat-totales-sub">Sin trámites actuales</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-label">Último estado</div>
+      <div class="sum-val" id="stat-estado" style="color:var(--text-secondary);">Ninguno</div>
+      <div class="sum-sub" id="stat-estado-sub">-</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-label">Beneficio recibido</div>
+      <div class="sum-val">$0</div>
+      <div class="sum-sub">Acumulado 2026</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec-title">
+      <span class="sec-title-dot"></span> Mis solicitudes
+    </div>
+
+    <!-- Contenedor inyectado dinamicamente -->
+    <div id="tramites-container">
+      <div style="text-align: center; padding: 2rem 1rem; color: var(--text-secondary); font-size: 13px;">
+        Cargando trámites...
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel IA -->
+  <div class="ia-panel">
+    <div class="ia-head" id="ia-head">
+      <span class="ia-title">Análisis IA</span>
+    </div>
+    <div id="ia-content">
+      <div class="ia-item" style="color:var(--text-secondary);">
+        No hay análisis de IA activos en este momento.
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Detalle -->
+  <div class="modal-overlay" id="tramite-modal">
+    <div class="modal-content">
+      <div class="tr-top" style="margin-bottom: 12px;">
+        <span class="tr-name" id="modal-title" style="font-size: 16px;">Detalle</span>
+        <span class="modal-close" onclick="closeDetalleModal()">✕</span>
+      </div>
+      
+      <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">
+        <strong>ID de Radicado:</strong> <span id="modal-id">...</span>
+      </div>
+      <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">
+        <strong>Fecha:</strong> <span id="modal-fecha">...</span>
+      </div>
+      <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
+        <strong>Estado actual:</strong> <span id="modal-estado">...</span>
+      </div>
+
+      <div class="progress-track" style="margin-bottom: 8px;">
+        <div class="progress-bar" id="modal-progress" style="width:0%;"></div>
+      </div>
+      <div style="font-size: 12px; color: var(--text-primary); text-align: center; margin-bottom: 1rem;">
+        Paso actual: <strong id="modal-step">...</strong>
+      </div>
+
+      <!-- Área de IA en modal -->
+      <div id="modal-ia-box" style="display:none; margin-bottom: 1rem; padding: 10px; background: var(--red-50); border: 0.5px solid var(--red-400); border-radius: var(--radius-md);">
+        <div style="font-size: 12px; font-weight: 500; color: var(--red-800); margin-bottom: 4px;">Análisis de Riesgo de Rechazo (IA)</div>
+        <div id="modal-ia-rejection-content" style="font-size: 12px; color: var(--text-primary);"></div>
+      </div>
+
+      <button type="button" class="cancel-btn" id="btn-ia-reject" style="width: 100%; border-color: var(--teal-400); color: var(--teal-400); margin-bottom: 8px; font-weight: 500;">
+        ✨ Analizar riesgo de rechazo (IA)
+      </button>
+
+      <div style="display: flex; gap: 8px;">
+        <button class="submit-btn" style="flex: 1; padding: 8px; font-size: 13px;" onclick="closeDetalleModal()">Cerrar panel</button>
+        <button class="cancel-btn" id="btn-delete-tramite" style="flex: 1; margin-top: 0; padding: 8px; font-size: 13px; border-color: var(--red-400); color: var(--red-400);">Eliminar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  /* Modal Styles */
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .modal-overlay.active { opacity: 1; pointer-events: all; }
+  .modal-content {
+    background: var(--surface); padding: 1.5rem; border-radius: var(--radius-lg);
+    width: 90%; max-width: 400px;
+    transform: translateY(20px); transition: transform 0.2s;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  }
+  .modal-overlay.active .modal-content { transform: translateY(0); }
+  .modal-close { 
+    cursor: pointer; color: var(--text-secondary);
+    font-size: 18px; line-height: 1;
+  }
+  .modal-close:hover { color: var(--text-primary); }
+</style>
+
+<script is:inline>
+  function renderTramites() {
+    const tramites = JSON.parse(localStorage.getItem('tramites') || '[]');
+    
+    // Update Stats
+    document.getElementById('stat-totales').textContent = tramites.length;
+    document.getElementById('stat-totales-sub').textContent = tramites.length === 0 ? 'Sin trámites actuales' : (tramites.length + ' trámite(s)');
+    
+    if (tramites.length > 0) {
+      const ultimo = tramites[0];
+      const estadoEl = document.getElementById('stat-estado');
+      estadoEl.textContent = ultimo.estado;
+      
+      // Color dependiente del estado
+      if (ultimo.estado === 'Aprobado') estadoEl.style.color = 'var(--green-400)';
+      else if (ultimo.estado === 'En estudio') estadoEl.style.color = 'var(--amber-400)';
+      else if (ultimo.estado === 'Negado') estadoEl.style.color = 'var(--red-400)';
+      else estadoEl.style.color = 'var(--blue-600)';
+      
+      document.getElementById('stat-estado-sub').textContent = ultimo.name;
+    } else {
+      document.getElementById('stat-estado').textContent = 'Ninguno';
+      document.getElementById('stat-estado').style.color = 'var(--text-secondary)';
+      document.getElementById('stat-estado-sub').textContent = '-';
+    }
+
+    // Update List
+    const container = document.getElementById('tramites-container');
+    if (tramites.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 2rem 1rem; color: var(--text-secondary); font-size: 13px;">
+          No tienes solicitudes de trámites actualmente.
+        </div>`;
+    } else {
+      container.innerHTML = tramites.map(tr => `
+        <div class="tramite-row">
+          <div class="tr-top">
+            <span class="tr-name">${tr.name}</span>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              ${tr.riesgo ? `<span class="badge" style="background:var(--gray-bg); color:var(--text-secondary); border:none;">Factibilidad: ${tr.riesgo}</span>` : ''}
+              <span class="badge ${tr.estadoClass}">${tr.estado}</span>
+            </div>
+          </div>
+          <div class="tr-mid">
+            <span class="tr-tipo">${tr.tipoBadge}</span>
+            <span class="tr-date">${tr.fechaText}</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-bar ${tr.progClass}" style="width:${tr.progWidth}%;"></div>
+          </div>
+          <div class="tr-foot">
+            <span class="tr-step">${tr.stepText}</span>
+            <span class="${tr.estado === 'Negado' ? 'tr-link-red' : 'tr-link'}" onclick="openDetalleModal(${tr.id})">${tr.actionText}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Update IA Panel
+    const iaContainer = document.getElementById('ia-content');
+    const iaHead = document.getElementById('ia-head');
+    
+    const enEstudioList = tramites.filter(t => t.estado === 'En estudio');
+    
+    if (enEstudioList.length > 0) {
+      if (!document.getElementById('ia-pulse-loader')) {
+        iaHead.insertAdjacentHTML('afterbegin', '<div class="ia-pulse" id="ia-pulse-loader"></div>');
+      }
+      
+      iaContainer.innerHTML = `
+        <div class="ia-item"><span class="ia-ic" style="color:var(--green-400);">✓</span> Identidad verificada con documento adjunto</div>
+        <div class="ia-item"><span class="ia-ic" style="color:var(--amber-600);">⏳</span> Revisando documentación del evento (${enEstudioList[0].name})...</div>
+        <div class="ia-item" style="color:var(--text-secondary);"><span class="ia-ic">◯</span> Revisión de comité (pendiente resultado IA)</div>
+      `;
+    } else {
+      const pulse = document.getElementById('ia-pulse-loader');
+      if (pulse) pulse.remove();
+      
+      iaContainer.innerHTML = `
+        <div class="ia-item" style="color:var(--text-secondary);">
+          No hay análisis de IA activos en este momento.
+        </div>
+      `;
+    }
+  }
+
+  // Lógica Modal
+  function openDetalleModal(id) {
+    const tramites = JSON.parse(localStorage.getItem('tramites') || '[]');
+    const tr = tramites.find(t => t.id === id);
+    if (!tr) return;
+
+    document.getElementById('modal-title').textContent = tr.name;
+    document.getElementById('modal-id').textContent = tr.id;
+    document.getElementById('modal-fecha').textContent = tr.fechaText;
+    
+    const est = document.getElementById('modal-estado');
+    est.textContent = tr.estado;
+    est.className = `badge ${tr.estadoClass}`;
+    
+    const prog = document.getElementById('modal-progress');
+    prog.style.width = tr.progWidth + '%';
+    // set color based on class
+    prog.className = `progress-bar ${tr.progClass}`;
+
+    document.getElementById('modal-step').textContent = tr.stepText;
+    document.getElementById('btn-delete-tramite').onclick = () => deleteTramite(id);
+
+    // Reset AI box
+    document.getElementById('modal-ia-box').style.display = 'none';
+    const btnIa = document.getElementById('btn-ia-reject');
+    btnIa.style.display = (tr.descripcion) ? 'block' : 'none';
+    btnIa.innerHTML = '✨ Analizar riesgo de rechazo (IA)';
+    btnIa.onclick = () => analizarRechazoIA(id);
+
+    document.getElementById('tramite-modal').classList.add('active');
+  }
+
+  function deleteTramite(id) {
+    if(!confirm("¿Estás seguro de que deseas eliminar esta solicitud permanentemente?")) return;
+    
+    let tramites = JSON.parse(localStorage.getItem('tramites') || '[]');
+    const target = tramites.find(t => t.id === id);
+
+    tramites = tramites.filter(t => t.id !== id);
+    localStorage.setItem('tramites', JSON.stringify(tramites));
+    
+    if(target) {
+      let notifs = JSON.parse(localStorage.getItem('notificaciones') || '[]');
+      notifs.unshift({
+        iconClass: "b-gray",
+        iconText: "✕",
+        messageHtml: `Has borrado permanentemente la solicitud <strong>${target.name}</strong>.`,
+        time: "Justo ahora"
+      });
+      localStorage.setItem('notificaciones', JSON.stringify(notifs));
+      window.dispatchEvent(new Event('notifsUpdated'));
+    }
+
+    closeDetalleModal();
+    renderTramites();
+  }
+
+  async function analizarRechazoIA(id) {
+    const tramites = JSON.parse(localStorage.getItem('tramites') || '[]');
+    const tr = tramites.find(t => t.id === id);
+    if (!tr || !tr.descripcion) return;
+
+    const btn = document.getElementById('btn-ia-reject');
+    const box = document.getElementById('modal-ia-box');
+    const content = document.getElementById('modal-ia-rejection-content');
+
+    const originalBtnHTML = btn.innerHTML;
+    btn.innerHTML = '✨ Analizando...';
+    btn.disabled = true;
+    
+    box.style.display = 'block';
+    content.innerHTML = '<span style="color:var(--text-secondary);">Generando análisis de riesgo...</span>';
+
+    try {
+      const response = await fetch('https://api.deepseek.com/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer sk-53dd7b237c854688aaf4c82f3956c9c0'
+        },
+        body: JSON.stringify({
+          model: "deepseek-chat",
+          messages: [
+            {
+              role: "system", 
+              content: "Eres un estricto auditor del comité de evaluación de auxilios cooperativos de BeneficIA. Se te proporciona la descripción de una solicitud de auxilio. Tu tarea es encontrar las razones concretas por las cuales esta solicitud ESALTAMENTE RIESGOSA y SERÁ RECHAZADA. Identifica fallas lógicas, falta explícita de justificación gravosa, falta de contundencia u omisiones de detalles clave que todo comité exige. Responde en un solo párrafo corto y MUY DIRECTO indicando el motivo por el cual no procede. NO uses etiquetas markdown como asteriscos, hashtags o subrayados."
+            },
+            {
+              role: "user",
+              content: `Tipo de auxilio: ${tr.name}. Descripción del usuario: ${tr.descripcion}`
+            }
+          ],
+          temperature: 0.4
+        })
+      });
+      
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+      
+      const iaText = data.choices[0].message.content;
+      // Filter out markdown just in case
+      const cleanText = iaText.replace(/[*_#`~>]/g, '');
+      content.innerHTML = cleanText;
+
+    } catch(err) {
+      console.error(err);
+      content.innerHTML = `<span style="color: var(--red-400);">Hubo un error contactando a la IA. Revisa la consola.</span>`;
+    } finally {
+      btn.innerHTML = originalBtnHTML;
+      btn.disabled = false;
+    }
+  }
+
+  function closeDetalleModal() {
+    document.getElementById('tramite-modal').classList.remove('active');
+  }
+
+  // Initial Render
+  document.addEventListener('DOMContentLoaded', () => {
+    // Only run if on actual dashboard, wait slightly to make sure localStorage is readable
+    setTimeout(renderTramites, 50);
+  });
+  
+  // Custom event listener for updates
+  window.addEventListener('tramitesUpdated', renderTramites);
+</script>

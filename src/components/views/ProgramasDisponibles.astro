@@ -1,0 +1,92 @@
+<div id="view-programas" style="display:none;">
+  <div class="card">
+    <div class="sec-title">
+      <span class="sec-title-dot"></span> Programas disponibles para ti
+    </div>
+
+    <div id="prog-container">
+      <!-- injected via JS -->
+    </div>
+  </div>
+</div>
+
+<script is:inline>
+  const programasHardcoded = [
+    {
+      name: "Beca de Excelencia Estudiantil",
+      badgeClass: "b-blue",
+      badgeText: "Convocatoria Abierta",
+      desc: "Apoyo económico para asociados o sus hijos en programas de educación superior que mantengan un promedio superior a 4.2.",
+      progress: 75,
+      progressColor: "var(--blue-400)",
+      progressText: "75% del presupuesto anual ejecutado",
+      tipoPrincipal: "Educación",
+      subTipo: "Beca de estudios"
+    },
+    {
+      name: "Auxilio Solidario por Calamidad",
+      badgeClass: "b-amber",
+      badgeText: "Fondo de Emergencia",
+      desc: "Cobertura inmediata ante afectaciones graves por desastres naturales o siniestros en la vivienda principal del asociado.",
+      progress: 40,
+      progressColor: "var(--amber-400)",
+      progressText: "Fondo con alta disponibilidad",
+      tipoPrincipal: "Calamidad",
+      subTipo: "Desastre natural"
+    },
+    {
+      name: "Kit de Bienvenida Maternidad",
+      badgeClass: "b-green",
+      badgeText: "Beneficio Permanente",
+      desc: "Apoyo para gastos de natalidad y adecuación inicial entregado a los asociados por el nacimiento o adopción de un hijo.",
+      progress: 90,
+      progressColor: "var(--green-400)",
+      progressText: "Cierre de convocatorias próximo",
+      tipoPrincipal: "Natalidad",
+      subTipo: "Parto reciente"
+    }
+  ];
+
+  function renderProgramas() {
+    const container = document.getElementById('prog-container');
+    container.innerHTML = programasHardcoded.map(prog => `
+      <div class="prog-item">
+        <div class="prog-head">
+          <div class="prog-name">${prog.name}</div>
+          <span class="badge ${prog.badgeClass}">${prog.badgeText}</span>
+        </div>
+        <div class="prog-desc" style="color:var(--text-secondary); font-size:13px; line-height:1.5; margin-bottom:12px;">${prog.desc}</div>
+        <div class="prog-track">
+          <div class="prog-fill" style="width:${prog.progress}%; background:${prog.progressColor};"></div>
+        </div>
+        <div class="prog-foot">
+          <span>${prog.progressText}</span>
+          <span class="prog-apply" style="cursor:pointer; color:var(--teal-600); font-weight:500;" onclick="aplicarPrograma('${prog.tipoPrincipal}', '${prog.subTipo}')">Aplicar ahora →</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function aplicarPrograma(tipoPrincipal, subTipo) {
+    switchTab('nueva');
+    
+    // Simular que el tab se procesa
+    setTimeout(() => {
+      const tabEl = document.querySelector(\`.s-tab[data-tipo="\${tipoPrincipal}"]\`);
+      if(tabEl) {
+         selTipo(tabEl, tipoPrincipal);
+         
+         setTimeout(() => {
+           const subSelect = document.getElementById('tipoEvento');
+           if (subSelect && subTipo) {
+             subSelect.value = subTipo;
+           }
+         }, 50);
+      }
+    }, 50);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(renderProgramas, 50);
+  });
+</script>

@@ -1,0 +1,256 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="BeneficIA Social — Acceder">
+  <div class="auth-container">
+    <div class="auth-card">
+      
+      <div class="auth-header">
+        <div class="auth-logo">BeneficIA Social</div>
+        <p class="auth-subtitle">Gestiona tus auxilios y beneficios fácil y rápido</p>
+      </div>
+
+      <!-- Tabs de Auth -->
+      <div class="s-tabs auth-tabs">
+        <div class="s-tab active" id="tab-login" onclick="toggleAuthMode('login')">Iniciar sesión</div>
+        <div class="s-tab" id="tab-register" onclick="toggleAuthMode('register')">Crear cuenta</div>
+      </div>
+
+      <!-- Formulario de Login -->
+      <form id="form-login" class="auth-form" onsubmit="handleAuth(event, 'login')">
+        <div class="form-row-1">
+          <label class="flabel">Cédula de ciudadanía</label>
+          <input class="finput" type="text" placeholder="Ej. 1052487903" required />
+        </div>
+        <div class="form-row-1">
+          <label class="flabel">Contraseña</label>
+          <input class="finput" type="password" placeholder="••••••••" required />
+        </div>
+        
+        <div class="auth-extras">
+          <label class="check-container">
+            <input type="checkbox" id="rememberMe" />
+            <span class="checkmark"></span>
+            <span class="chk-label">Recordarme</span>
+          </label>
+          <a href="#" class="auth-link">¿Olvidaste tu contraseña?</a>
+        </div>
+
+        <button type="submit" class="submit-btn" id="btn-login">Ingresar de forma segura →</button>
+      </form>
+
+      <!-- Formulario de Registro -->
+      <form id="form-register" class="auth-form" style="display:none;" onsubmit="handleAuth(event, 'register')">
+        <div class="form-row-1">
+          <label class="flabel">Nombre completo</label>
+          <input class="finput" type="text" placeholder="Ej. María López Herrera" required />
+        </div>
+        <div class="form-row">
+          <div>
+            <label class="flabel">Cédula de ciudadanía</label>
+            <input class="finput" type="text" placeholder="1052487903" required />
+          </div>
+          <div>
+            <label class="flabel">Correo electrónico</label>
+            <input class="finput" type="email" placeholder="maria@ejemplo.com" required />
+          </div>
+        </div>
+        <div class="form-row-1">
+          <label class="flabel">Crear contraseña</label>
+          <input class="finput" type="password" placeholder="••••••••" required />
+        </div>
+
+        <div class="auth-extras" style="margin-bottom: 1rem;">
+          <label class="check-container">
+            <input type="checkbox" required />
+            <span class="checkmark"></span>
+            <span class="chk-label">Acepto la política de tratamiento de datos</span>
+          </label>
+        </div>
+
+        <button type="submit" class="submit-btn" id="btn-register">Registrarme y acceder →</button>
+      </form>
+
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .auth-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 80vh; /* take up screen under normal page padding */
+  }
+
+  .auth-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 2.5rem 2rem;
+    width: 100%;
+    max-width: 440px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+  }
+
+  .auth-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .auth-logo {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--blue-800);
+    margin-bottom: 6px;
+    letter-spacing: -0.5px;
+  }
+
+  .auth-subtitle {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .auth-tabs {
+    display: flex;
+    margin-bottom: 1.5rem;
+    background: var(--gray-bg);
+    padding: 4px;
+    border-radius: 20px;
+  }
+
+  .auth-tabs .s-tab {
+    flex: 1;
+    text-align: center;
+    border: none;
+    background: transparent;
+  }
+
+  .auth-tabs .s-tab.active {
+    background: var(--surface);
+    color: var(--blue-800);
+    font-weight: 500;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.04);
+  }
+
+  .auth-extras {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+    margin-bottom: 1.25rem;
+  }
+
+  .auth-link {
+    font-size: 11px;
+    color: var(--blue-600);
+    text-decoration: none;
+  }
+  .auth-link:hover {
+    text-decoration: underline;
+  }
+
+  /* Custom Checkbox */
+  .check-container {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-size: 11px;
+    user-select: none;
+    color: var(--text-secondary);
+  }
+  .check-container input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+  }
+  .checkmark {
+    height: 14px;
+    width: 14px;
+    background-color: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: 4px;
+    margin-right: 6px;
+    position: relative;
+    transition: all 0.2s;
+  }
+  .check-container:hover input ~ .checkmark {
+    background-color: var(--blue-50);
+  }
+  .check-container input:checked ~ .checkmark {
+    background-color: var(--blue-600);
+    border-color: var(--blue-600);
+  }
+  .checkmark:after {
+    content: "";
+    position: absolute;
+    display: none;
+    left: 4px;
+    top: 1px;
+    width: 3px;
+    height: 7px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  .check-container input:checked ~ .checkmark:after {
+    display: block;
+  }
+
+  /* Button Loading State */
+  .btn-loading {
+    opacity: 0.8;
+    cursor: not-allowed;
+    position: relative;
+    color: transparent !important;
+  }
+  .btn-loading::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 16px;
+    height: 16px;
+    margin-left: -8px;
+    margin-top: -8px;
+    border: 2px solid white;
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { 100% { transform: rotate(360deg); } }
+</style>
+
+<script is:inline>
+  // Redirect to home if already logged in
+  if (localStorage.getItem('isLoggedIn') === 'true') {
+    window.location.href = '/';
+  }
+
+  function toggleAuthMode(mode) {
+    document.getElementById('tab-login').classList.toggle('active', mode === 'login');
+    document.getElementById('tab-register').classList.toggle('active', mode === 'register');
+    
+    document.getElementById('form-login').style.display = mode === 'login' ? 'block' : 'none';
+    document.getElementById('form-register').style.display = mode === 'register' ? 'block' : 'none';
+  }
+
+  function handleAuth(event, type) {
+    event.preventDefault();
+    const btnId = type === 'login' ? 'btn-login' : 'btn-register';
+    const btn = document.getElementById(btnId);
+    
+    // Simular tiempo de validación y carga
+    btn.classList.add('btn-loading');
+    
+    setTimeout(() => {
+      // Guardar bandera en localStorage
+      localStorage.setItem('isLoggedIn', 'true');
+      // Redirigir al dashboard / portal
+      window.location.href = '/';
+    }, 1200); // 1.2 segundos para efecto de carga
+  }
+</script>
