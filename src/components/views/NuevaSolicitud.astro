@@ -131,7 +131,7 @@
     });
   }
 
-  function submitNuevaSolicitud(e) {
+  async function submitNuevaSolicitud(e) {
     e.preventDefault();
     const btn = document.getElementById('btn-submit-solicitud');
     const originalText = btn.innerHTML;
@@ -142,54 +142,73 @@
     const tipo = document.getElementById("tipoPrincipal").value;
     const subTipo = document.getElementById("tipoEvento").value;
     const descripcion = document.getElementById("descripcionEvento").value;
+    const fechaEvento = document.getElementById("fechaEvento").value;
 
-    const dateOptions = { day: '2-digit', month: 'short', year: 'numeric' };
-    const dateFormatted = new Date().toLocaleDateString('es-CO', dateOptions);
-
-    const nuevoTramite = {
-      id: Date.now(),
-      name: "Auxilio por " + subTipo.toLowerCase(),
-      estado: "En estudio",
-      estadoClass: "b-amber",
-      progClass: "pb-amber",
-      progWidth: "30", // Progress for "En estudio"
-      tipoBadge: tipo,
-      fechaText: "Radicado " + dateFormatted,
-      stepText: "Validación inicial IA · En progreso",
-      actionText: "Ver detalle",
-      descripcion: descripcion,
-      riesgo: document.getElementById("factibilidadNivel").value
-    };
-
-    setTimeout(() => {
-      // Guardar en localStorage
-      let tramites = JSON.parse(localStorage.getItem('tramites') || '[]');
-      // Insertar al inicio de la lista
-      tramites.unshift(nuevoTramite);
-      localStorage.setItem('tramites', JSON.stringify(tramites));
-
-      // Generar notificacion
-      let notifs = JSON.parse(localStorage.getItem('notificaciones') || '[]');
-      notifs.unshift({
-        iconClass: "b-blue",
-        iconText: "N",
-        messageHtml: `Nueva solicitud radicada: <strong>Auxilio por ${subTipo.toLowerCase()}</strong>. En espera de evaluación.`,
-        time: "Justo ahora"
-      });
-      localStorage.setItem('notificaciones', JSON.stringify(notifs));
-      window.dispatchEvent(new Event('notifsUpdated'));
-
-      // Limpiar formulario y restaurar botón
-      document.getElementById('form-nueva-sol').reset();
+    if (!fechaEvento) {
+      alert('Seleccione la fecha del evento.');
       btn.innerHTML = originalText;
       btn.disabled = false;
+      return;
+    }
 
-      // Disparar evento personalizado para que MisTramites lo atrape y recargue
+    try {
+      const response = await fetch('/api/solicitudes', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tipoPrincipal: tipo,
+          tipoEvento: subTipo,
+          fechaEvento: new Date(fechaEvento).toISOString(),
+          descripcionEvento: descripcion,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        const errorMsg = result.error || 'Error desconocido al enviar la solicitud.';
+        if (response.status === 403) {
+          alert('⛔ Su membresía no está activa o tiene contribuciones en mora. No puede radicar solicitudes.\n\n' + errorMsg);
+        } else if (response.status === 422) {
+          alert('⚠️ La solicitud no cumple los requisitos:\n\n' + errorMsg);
+        } else if (response.status === 409) {
+          alert('⚠️ Ya existe una solicitud para este evento.\n\n' + errorMsg);
+        } else {
+          alert('Error: ' + errorMsg);
+        }
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        return;
+      }
+
+      // Success — limpiar formulario
+      document.getElementById('form-nueva-sol').reset();
+      document.getElementById('tipoPrincipal').value = 'Calamidad';
+      document.getElementById('factibilidadNivel').value = '';
+      // Reset tab selection
+      document.querySelectorAll("#sTabs .s-tab").forEach((t) => t.classList.remove("active"));
+      document.querySelector('#sTabs .s-tab[data-tipo="Calamidad"]')?.classList.add("active");
+
+      btn.innerHTML = '✓ Solicitud radicada exitosamente';
+      btn.style.background = 'var(--green-400)';
+      setTimeout(() => {
+        btn.innerHTML = originalText;
+        btn.style.background = '';
+        btn.disabled = false;
+      }, 2000);
+
+      // Disparar evento para que MisTramites recargue desde la API
       window.dispatchEvent(new Event('tramitesUpdated'));
 
-      // Mandar a la vista de trámites
+      // Navegar a la vista de trámites
       switchTab('tramites');
-    }, 800); // 800ms de simulacion
+    } catch (err) {
+      console.error('Error al enviar solicitud:', err);
+      alert('Error de conexión al enviar la solicitud. Intente nuevamente.');
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+    }
   }
 
   async function analizarConIA() {
@@ -210,6 +229,7 @@
     try {
       const response = await fetch('/api/deepseek', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
         },
@@ -259,17 +279,6 @@
         .join('');
 
       reqList.innerHTML = `<div style="padding: 10px; background: var(--teal-50); border: 0.5px solid var(--teal-400); border-radius: var(--radius-md);">${formattedHTML}</div>`;
-
-      // Dispatch AI generation notification
-      let notifs = JSON.parse(localStorage.getItem('notificaciones') || '[]');
-      notifs.unshift({
-        iconClass: "b-amber",
-        iconText: "AI",
-        messageHtml: `Análisis de validación preliminar completado por IA. Factibilidad calculada: <strong>${matchRiesgo ? matchRiesgo[1] : 'Evaluada'}</strong>.`,
-        time: "Justo ahora"
-      });
-      localStorage.setItem('notificaciones', JSON.stringify(notifs));
-      window.dispatchEvent(new Event('notifsUpdated'));
 
     } catch(err) {
       console.error(err);

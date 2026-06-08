@@ -1,0 +1,253 @@
+<div id="view-beneficiarios" style="display:none;">
+  <!-- ─── Beneficiaries list ─── -->
+  <div class="card">
+    <div class="sec-title" style="display: flex; justify-content: space-between; align-items: center;">
+      <div><span class="sec-title-dot"></span> Mis beneficiarios</div>
+      <button id="btn-add-benef" class="badge b-blue" style="cursor:pointer;border:none;font-family:inherit;padding:5px 12px;"
+        onclick="showBenefForm()">+ Agregar</button>
+    </div>
+
+    <div id="benef-list-container">
+      <div style="text-align: center; padding: 2rem 1rem; color: var(--text-secondary); font-size: 13px;">
+        Cargando beneficiarios...
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Add beneficiary form (hidden by default) ─── -->
+  <div class="card" id="benef-form-card" style="display:none;">
+    <div class="sec-title">
+      <span class="sec-title-dot"></span> Agregar beneficiario
+    </div>
+    <div class="form-row">
+      <div>
+        <label class="flabel">Nombre completo</label>
+        <input id="benef-nombre" class="finput" placeholder="Ej. María Pérez" />
+      </div>
+      <div>
+        <label class="flabel">Cédula</label>
+        <input id="benef-cedula" class="finput" placeholder="Ej. 1234567890" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div>
+        <label class="flabel">Parentesco</label>
+        <select id="benef-parentesco" class="fselect">
+          <option value="">Seleccionar...</option>
+          <option value="Cónyuge">Cónyuge</option>
+          <option value="Hijo(a)">Hijo(a)</option>
+          <option value="Padre">Padre</option>
+          <option value="Madre">Madre</option>
+          <option value="Hermano(a)">Hermano(a)</option>
+        </select>
+      </div>
+      <div>
+        <label class="flabel">Fecha de nacimiento</label>
+        <input id="benef-fechaNac" class="finput" type="date" />
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="submit-btn" style="flex:1;" onclick="addBeneficiario()">Guardar beneficiario</button>
+      <button class="cancel-btn" style="flex:1;" onclick="hideBenefForm()">Cancelar</button>
+    </div>
+    <div id="benef-form-error" style="margin-top:8px;font-size:12px;color:var(--red-400);display:none;"></div>
+  </div>
+
+  <!-- ─── Contribution history ─── -->
+  <div class="card">
+    <div class="sec-title">
+      <span class="sec-title-dot"></span> Historial de contribuciones
+    </div>
+    <div id="contrib-container">
+      <div style="text-align: center; padding: 2rem 1rem; color: var(--text-secondary); font-size: 13px;">
+        Cargando contribuciones...
+      </div>
+    </div>
+  </div>
+</div>
+
+<script is:inline>
+  // ── Beneficiaries ──
+
+  var benefFormVisible = false;
+
+  /** Fetch and render beneficiary list. */
+  async function renderBeneficiarios() {
+    var container = document.getElementById('benef-list-container');
+    if (!container) return;
+
+    try {
+      var res = await fetch('/api/beneficiarios', { credentials: 'include' });
+      if (!res.ok) {
+        container.innerHTML = '<div style="text-align:center;padding:2rem 1rem;color:var(--red-400);font-size:13px;">Error al cargar beneficiarios.</div>';
+        return;
+      }
+      var json = await res.json();
+      var benefs = json.data || [];
+
+      if (benefs.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:2rem 1rem;color:var(--text-secondary);font-size:13px;">No tienes beneficiarios registrados. Agrega uno usando el botón superior.</div>';
+        return;
+      }
+
+      container.innerHTML = benefs.map(function (b) {
+        var fechaNac = b.fechaNacimiento
+          ? new Date(b.fechaNacimiento).toLocaleDateString('es-CO')
+          : 'No registrada';
+        return '<div class="tramite-row" style="cursor:default;">' +
+          '<div class="tr-top">' +
+            '<span class="tr-name">' + escapeHtml(b.nombre) + '</span>' +
+            '<button class="badge b-red" style="cursor:pointer;border:none;font-family:inherit;padding:2px 10px;" ' +
+              'onclick="removeBeneficiario(\'' + b.$id + '\', \'' + escapeHtml(b.nombre).replace(/'/g, "\\'") + '\')">Eliminar</button>' +
+          '</div>' +
+          '<div class="tr-mid">' +
+            '<span class="tr-tipo">' + escapeHtml(b.parentesco) + '</span>' +
+            '<span class="tr-date">CC ' + escapeHtml(b.cedula) + '</span>' +
+          '</div>' +
+          '<div class="tr-step">Nacimiento: ' + fechaNac + '</div>' +
+        '</div>';
+      }).join('');
+    } catch (e) {
+      container.innerHTML = '<div style="text-align:center;padding:2rem 1rem;color:var(--red-400);font-size:13px;">Error de conexión al cargar beneficiarios.</div>';
+    }
+  }
+
+  /** Show the add-beneficiary form. */
+  function showBenefForm() {
+    var card = document.getElementById('benef-form-card');
+    if (card) card.style.display = 'block';
+    benefFormVisible = true;
+  }
+
+  /** Hide the add-beneficiary form and clear it. */
+  function hideBenefForm() {
+    var card = document.getElementById('benef-form-card');
+    if (card) card.style.display = 'none';
+    document.getElementById('benef-nombre').value = '';
+    document.getElementById('benef-cedula').value = '';
+    document.getElementById('benef-parentesco').value = '';
+    document.getElementById('benef-fechaNac').value = '';
+    var err = document.getElementById('benef-form-error');
+    if (err) { err.style.display = 'none'; err.textContent = ''; }
+    benefFormVisible = false;
+  }
+
+  /** POST a new beneficiary to the API. */
+  async function addBeneficiario() {
+    var nombre = document.getElementById('benef-nombre').value.trim();
+    var cedula = document.getElementById('benef-cedula').value.trim();
+    var parentesco = document.getElementById('benef-parentesco').value;
+    var fechaNacimiento = document.getElementById('benef-fechaNac').value;
+    var errEl = document.getElementById('benef-form-error');
+
+    if (!nombre || !cedula || !parentesco) {
+      if (errEl) { errEl.style.display = 'block'; errEl.textContent = 'Nombre, cédula y parentesco son obligatorios.'; }
+      return;
+    }
+
+    try {
+      var res = await fetch('/api/beneficiarios', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre: nombre, cedula: cedula, parentesco: parentesco, fechaNacimiento: fechaNacimiento || null }),
+      });
+
+      if (res.ok) {
+        hideBenefForm();
+        renderBeneficiarios();
+      } else {
+        var json = await res.json();
+        if (errEl) { errEl.style.display = 'block'; errEl.textContent = json.error || 'Error al guardar.'; }
+      }
+    } catch (e) {
+      if (errEl) { errEl.style.display = 'block'; errEl.textContent = 'Error de conexión al guardar.'; }
+    }
+  }
+
+  /** DELETE a beneficiary via the API. */
+  async function removeBeneficiario(id, nombre) {
+    if (!confirm('¿Eliminar a ' + nombre + ' de tus beneficiarios?')) return;
+
+    try {
+      var res = await fetch('/api/beneficiarios/' + id, { method: 'DELETE', credentials: 'include' });
+      if (res.ok) {
+        renderBeneficiarios();
+      } else {
+        var json = await res.json();
+        alert(json.error || 'Error al eliminar beneficiario.');
+      }
+    } catch (e) {
+      alert('Error de conexión al eliminar beneficiario.');
+    }
+  }
+
+  /** Escape HTML entities. */
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  // ── Contributions ──
+
+  /** Fetch and render contribution history. */
+  async function renderContribuciones() {
+    var container = document.getElementById('contrib-container');
+    if (!container) return;
+
+    try {
+      var res = await fetch('/api/contribuciones', { credentials: 'include' });
+      if (!res.ok) {
+        container.innerHTML = '<div style="text-align:center;padding:1.5rem 1rem;color:var(--red-400);font-size:13px;">Error al cargar contribuciones.</div>';
+        return;
+      }
+      var json = await res.json();
+      var contribs = json.data || [];
+
+      if (contribs.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:1.5rem 1rem;color:var(--text-secondary);font-size:13px;">No hay registros de contribuciones.</div>';
+        return;
+      }
+
+      container.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:12px;">' +
+        '<thead><tr style="border-bottom:1px solid var(--border);">' +
+          '<th style="text-align:left;padding:6px 8px;color:var(--text-secondary);font-weight:500;">Periodo</th>' +
+          '<th style="text-align:right;padding:6px 8px;color:var(--text-secondary);font-weight:500;">Monto</th>' +
+          '<th style="text-align:center;padding:6px 8px;color:var(--text-secondary);font-weight:500;">Estado</th>' +
+          '<th style="text-align:right;padding:6px 8px;color:var(--text-secondary);font-weight:500;">Fecha</th>' +
+        '</tr></thead>' +
+        '<tbody>' +
+        contribs.map(function (c) {
+          var estadoClass = c.estado === 'al_dia' ? 'b-green' : 'b-red';
+          var estadoLabel = c.estado === 'al_dia' ? 'Al día' : 'Moroso';
+          var fecha = new Date(c.fecha).toLocaleDateString('es-CO');
+          var monto = Number(c.monto).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 });
+          return '<tr style="border-bottom:0.5px solid var(--border);">' +
+            '<td style="padding:8px;">' + escapeHtml(c.periodo) + '</td>' +
+            '<td style="padding:8px;text-align:right;font-weight:500;">' + monto + '</td>' +
+            '<td style="padding:8px;text-align:center;"><span class="badge ' + estadoClass + '">' + estadoLabel + '</span></td>' +
+            '<td style="padding:8px;text-align:right;color:var(--text-secondary);">' + fecha + '</td>' +
+          '</tr>';
+        }).join('') +
+        '</tbody>' +
+      '</table>';
+    } catch (e) {
+      container.innerHTML = '<div style="text-align:center;padding:1.5rem 1rem;color:var(--red-400);font-size:13px;">Error de conexión al cargar contribuciones.</div>';
+    }
+  }
+
+  // ── Bootstrap ──
+  document.addEventListener('DOMContentLoaded', function () {
+    setTimeout(renderBeneficiarios, 50);
+    setTimeout(renderContribuciones, 100);
+  });
+
+  window.addEventListener('benefsUpdated', function () {
+    renderBeneficiarios();
+    renderContribuciones();
+  });
+</script>

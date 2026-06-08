@@ -621,7 +621,7 @@ const { title } = Astro.props;
     <script is:inline>
       /* ── Global Scripts ── */
       function switchTab(name) {
-        const views = ["tramites", "nueva", "programas", "notificaciones"];
+        const views = ["tramites", "nueva", "programas", "beneficiarios", "notificaciones"];
         views.forEach((v) => {
           const el = document.getElementById("view-" + v);
           if (el) el.style.display = v === name ? "block" : "none";
@@ -629,11 +629,9 @@ const { title } = Astro.props;
         document.querySelectorAll("#mainTabs .tab").forEach((t, i) => {
           if (views[i]) t.classList.toggle("active", views[i] === name);
         });
-      }
-
-      function logoutFunc() {
-        localStorage.removeItem("isLoggedIn");
-        window.location.href = "/login";
+        
+        // Dispatch custom event when tab changes
+        window.dispatchEvent(new CustomEvent('tabChanged', { detail: { tab: name } }));
       }
     </script>
   </body>

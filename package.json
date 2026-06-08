@@ -9,10 +9,13 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "seed": "node --env-file=.env --experimental-strip-types scripts/seed-catalogs.ts",
+    "seed:users": "node --env-file=.env --experimental-strip-types scripts/seed-users.ts"
   },
   "dependencies": {
     "@astrojs/vercel": "^10.0.4",
-    "astro": "^6.1.7"
+    "astro": "^6.1.7",
+    "node-appwrite": "^26.1.0"
   }
 }

@@ -5,14 +5,29 @@ import NavigationTabs from "../components/NavigationTabs.astro";
 import MisTramites from "../components/views/MisTramites.astro";
 import NuevaSolicitud from "../components/views/NuevaSolicitud.astro";
 import ProgramasDisponibles from "../components/views/ProgramasDisponibles.astro";
+import Beneficiarios from "../components/views/Beneficiarios.astro";
 import Notificaciones from "../components/views/Notificaciones.astro";
+
+// ── SSR: session check via middleware ──
+// La middleware ya protege la ruta y pone locals.user.
+// Este doble check es por si la middleware no está configurada.
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/login');
+}
+
+const idInfo = user.cedula
+  ? `CC ${user.cedula} · Afiliado activo`
+  : 'Afiliado activo';
 ---
 
 <BaseLayout title="BeneficIA Social — Portal Personal">
   <TopBar
-    initials="U"
-    name="Usuario"
-    idInfo="Afiliado"
+    initials={user.initials}
+    name={user.name}
+    idInfo={idInfo}
+    userId={user.id}
+    userEmail={user.email}
   />
 
   <NavigationTabs />
@@ -20,12 +35,6 @@ import Notificaciones from "../components/views/Notificaciones.astro";
   <MisTramites />
   <NuevaSolicitud />
   <ProgramasDisponibles />
+  <Beneficiarios />
   <Notificaciones />
-
-  <script is:inline>
-    // Si no está el flag de sesión, mandarlo al login
-    if (localStorage.getItem("isLoggedIn") !== "true") {
-      window.location.href = "/login";
-    }
-  </script>
 </BaseLayout>
