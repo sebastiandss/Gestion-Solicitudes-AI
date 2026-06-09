@@ -86,7 +86,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   }
 
   // Admin gate
-  const admin = await isAdmin(user.id);
+  const admin = await isAdmin(locals);
   if (!admin) {
     return new Response(
       JSON.stringify({

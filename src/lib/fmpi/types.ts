@@ -17,7 +17,8 @@ export type EstadoSolicitud =
   | 'en_pago'
   | 'pagada'
   | 'negada'
-  | 'en_cola_por_fondos';
+  | 'en_cola_por_fondos'
+  | 'pendiente_documentos';
 
 /** Acción de aprobación en el historial. */
 export type AccionAprobacion = 'aprobado' | 'negado';
@@ -42,6 +43,7 @@ export interface Asociado {
   estadoContribucion: EstadoContribucion;
   fechaAfiliacion: string; // ISO UTC
   productosFecoomeva: string[];
+  esAdmin: boolean;
 }
 
 /** `beneficiarios` collection — beneficiaries linked to an asociado. */
@@ -80,6 +82,8 @@ export interface Solicitud {
   instanciaAprobacionActual: string | null;
   historialAprobacion: HistorialAprobacionEntry[];
   analisisIARiesgo: string | null;
+  documentosRequeridos: string[];
+  documentosEntregados: string[];
 }
 
 /** `contribuciones` collection — contribution history. */

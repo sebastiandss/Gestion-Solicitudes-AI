@@ -16,7 +16,7 @@
  *   APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID, APPWRITE_API_KEY, APPWRITE_DATABASE_ID
  */
 
-import { Client, Databases, ID, Permission, Role } from 'node-appwrite';
+import { Client, Databases, ID, Permission, Role, Users, Query } from 'node-appwrite';
 
 // ─── Config ─────────────────────────────────────────────
 
@@ -39,6 +39,7 @@ const client = new Client()
   .setKey(API_KEY);
 
 const db = new Databases(client);
+const users = new Users(client);
 
 // ─── Collection definitions ─────────────────────────────
 
@@ -118,6 +119,7 @@ const COLLECTIONS: CollectionDef[] = [
       { type: 'string', key: 'estadoContribucion', size: 20, required: true },
       { type: 'string', key: 'fechaAfiliacion', size: 50, required: true },
       { type: 'string', key: 'productosFecoomeva', size: 100, required: true, array: true },
+      { type: 'boolean', key: 'esAdmin', required: false, default: false },
     ],
   },
   {
@@ -144,8 +146,10 @@ const COLLECTIONS: CollectionDef[] = [
       { type: 'string', key: 'estado', size: 30, required: true },
       { type: 'integer', key: 'montoAprobado', required: false, default: 0 },
       { type: 'string', key: 'instanciaAprobacionActual', size: 100, required: false },
-      { type: 'string', key: 'historialAprobacion', size: 50000, required: false },
-      { type: 'string', key: 'analisisIARiesgo', size: 5000, required: false },
+      { type: 'string', key: 'historialAprobacion', size: 2000, required: false },
+      { type: 'string', key: 'analisisIARiesgo', size: 2000, required: false },
+      { type: 'string', key: 'documentosRequeridos', size: 1000, required: false },
+      { type: 'string', key: 'documentosEntregados', size: 1000, required: false },
     ],
   },
   {
@@ -554,6 +558,73 @@ async function ensureCollections(): Promise<void> {
   console.log('\n   ✅ All collections ready\n');
 }
 
+// ─── Admin backfill ──────────────────────────────────────
+
+/**
+ * Backfill esAdmin=true for users listed in ADMIN_USER_IDS env.
+ * Safe to run multiple times: only updates users that are in the env list
+ * and have an asociado record.
+ */
+async function backfillAdmins(): Promise<void> {
+  const adminIdsRaw = process.env.ADMIN_USER_IDS;
+  if (!adminIdsRaw) {
+    console.log('   ℹ️  ADMIN_USER_IDS not set — skipping admin backfill');
+    return;
+  }
+
+  const adminIds = adminIdsRaw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (adminIds.length === 0) {
+    console.log('   ℹ️  ADMIN_USER_IDS empty — skipping admin backfill');
+    return;
+  }
+
+  let updated = 0;
+  let notFound = 0;
+
+  for (const userId of adminIds) {
+    try {
+      // Find asociado by userId
+      const result = await db.listDocuments(DATABASE_ID, 'asociados', [
+        Query.equal('userId', userId),
+      ]);
+
+      if (result.documents.length === 0) {
+        notFound++;
+        continue;
+      }
+
+      for (const doc of result.documents) {
+        const asociado = doc as any;
+        if (asociado.esAdmin === true) continue; // already admin
+
+        await db.updateDocument(DATABASE_ID, 'asociados', doc.$id, {
+          esAdmin: true,
+        });
+        updated++;
+        console.log(`   ✅ ${asociado.nombre || asociado.userId} → esAdmin=true`);
+      }
+    } catch (err: any) {
+      console.warn(`   ⚠️  Failed to backfill userId=${userId}: ${err.message || err}`);
+    }
+  }
+
+  if (updated > 0) {
+    console.log(`   👑 ${updated} admin(s) backfilled successfully`);
+  }
+  if (notFound > 0) {
+    console.log(
+      `   ℹ️  ${notFound} admin ID(s) have no asociado record yet (will be set on registration)`,
+    );
+  }
+  if (updated === 0 && notFound === 0) {
+    console.log('   ✅ All admin users already have esAdmin=true');
+  }
+}
+
 // ─── Seed functions ─────────────────────────────────────
 
 /** Delete all documents from a collection. */
@@ -582,6 +653,10 @@ async function seed(): Promise<void> {
   // Step 2: Ensure collections exist with correct schema
   console.log('📋 Step 2: Collection setup');
   await ensureCollections();
+
+  // Step 2b: Backfill esAdmin for existing admins
+  console.log('\n👑 Step 2b: Backfill admin flag from ADMIN_USER_IDS env...');
+  await backfillAdmins();
 
   // Step 3: Seed auxilios
   console.log(`💊 Step 3: Seeding ${AUXILIOS.length} auxilio types...`);

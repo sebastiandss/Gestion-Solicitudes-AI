@@ -1,0 +1,419 @@
+---
+// AdminPanel.astro
+// Admin-only view: lists ALL solicitudes from all users with admin actions.
+
+export interface Props {
+  esAdmin?: boolean;
+}
+
+const { esAdmin = false } = Astro.props;
+---
+
+<div id="view-admin" data-es-admin={esAdmin ? 'true' : 'false'} style="display:none;">
+  <div class="card">
+    <div class="sec-title">
+      <span class="sec-title-dot"></span> Panel de administración — todas las solicitudes
+    </div>
+
+    <!-- Filtro por estado -->
+    <div id="admin-filter-bar" style="display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap;">
+      <label style="font-size: 12px; color: var(--text-secondary);">Filtrar por estado:</label>
+      <select id="admin-estado-filter" class="ftextarea" style="width: auto; min-width: 180px; padding: 6px 10px; font-size: 13px;">
+        <option value="">Todas</option>
+        <option value="radicada">Radicada</option>
+        <option value="en_estudio">En estudio</option>
+        <option value="pendiente_documentos">Pendiente de documentos</option>
+        <option value="en_aprobacion">En aprobación</option>
+        <option value="aprobada">Aprobada</option>
+        <option value="en_pago">En pago</option>
+        <option value="pagada">Pagada</option>
+        <option value="en_cola_por_fondos">En espera por fondos</option>
+        <option value="negada">Negada</option>
+      </select>
+      <button type="button" class="cancel-btn" id="btn-admin-refresh" style="margin-top: 0; padding: 6px 14px; font-size: 13px;">
+        ↻ Actualizar
+      </button>
+      <span id="admin-count" style="font-size: 12px; color: var(--text-secondary); margin-left: auto;"></span>
+    </div>
+
+    <!-- Contenedor de solicitudes -->
+    <div id="admin-solicitudes-container">
+      <div style="text-align: center; padding: 2rem 1rem; color: var(--text-secondary); font-size: 13px;">
+        Cargando solicitudes...
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: detalle de solicitud (reusa mismos estilos que MisTramites) -->
+  <div class="modal-overlay" id="admin-modal">
+    <div class="modal-content">
+      <div class="tr-top" style="margin-bottom: 12px;">
+        <span class="tr-name" id="admin-modal-title" style="font-size: 16px;">—</span>
+        <span class="modal-close" onclick="closeAdminModal()">✕</span>
+      </div>
+      <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
+        <span>Asociado: </span><strong id="admin-modal-asociado" style="color: var(--text-primary);">—</strong>
+        <span style="margin-left: 16px;">ID: </span><span id="admin-modal-id" style="color: var(--text-primary);">—</span>
+      </div>
+      <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+        <span>Radicación: </span><span id="admin-modal-fecha" style="color: var(--text-primary);">—</span>
+      </div>
+      <div style="margin-bottom: 12px;">
+        <span class="badge" id="admin-modal-estado">—</span>
+      </div>
+      <div class="progress-track" style="margin-bottom: 16px;">
+        <div class="progress-bar" id="admin-modal-progress" style="width:0%;"></div>
+      </div>
+      <div id="admin-modal-step" style="font-size: 13px; margin-bottom: 16px;"></div>
+
+      <!-- Actions container -->
+      <div id="admin-modal-actions" style="display:none;">
+        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+          <button type="button" class="submit-btn" id="admin-btn-approve" style="flex: 1; padding: 8px; font-size: 13px; background: var(--green-600);">✓ Aprobar</button>
+          <button type="button" class="cancel-btn" id="admin-btn-deny" style="flex: 1; margin-top: 0; padding: 8px; font-size: 13px; border-color: var(--red-400); color: var(--red-400);">✕ Denegar</button>
+        </div>
+        <button type="button" class="cancel-btn" id="admin-btn-request-docs" style="width: 100%; margin-top: 0; padding: 8px; font-size: 13px; border-color: var(--amber-400); color: var(--amber-800);">📄 Solicitar más documentos</button>
+      </div>
+
+      <button type="button" class="submit-btn" style="width: 100%; padding: 8px; font-size: 13px;" onclick="closeAdminModal()">Cerrar panel</button>
+    </div>
+  </div>
+
+  <!-- Modal: Solicitar documentos -->
+  <div class="modal-overlay" id="admin-docs-request-modal">
+    <div class="modal-content">
+      <div class="tr-top" style="margin-bottom: 12px;">
+        <span class="tr-name" style="font-size: 16px;">Solicitar documentos adicionales</span>
+        <span class="modal-close" onclick="closeAdminDocsRequestModal()">✕</span>
+      </div>
+      <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
+        Ingresa los nombres de los documentos requeridos (uno por línea o separados por coma).
+      </div>
+      <textarea id="admin-docs-request-input" rows="4" class="ftextarea" style="margin-bottom: 12px;" placeholder="Ej: Cédula de ciudadanía&#10;Certificado de defunción&#10;Factura del evento"></textarea>
+      <div style="display: flex; gap: 8px;">
+        <button type="button" class="submit-btn" id="admin-btn-send-docs-request" style="flex: 1; padding: 10px; font-size: 13px;">Enviar solicitud</button>
+        <button type="button" class="cancel-btn" style="flex: 1; margin-top: 0; padding: 10px; font-size: 13px;" onclick="closeAdminDocsRequestModal()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script is:inline>
+  (() => {
+  // ── State mapping helpers (duplicated from MisTramites for independence) ──
+  const ESTADO_LABELS = {
+    radicada: 'Radicada',
+    en_estudio: 'En estudio',
+    en_aprobacion: 'En aprobación',
+    aprobada: 'Aprobada',
+    en_pago: 'En pago',
+    pagada: 'Pagada',
+    negada: 'Negada',
+    en_cola_por_fondos: 'En espera por fondos',
+    pendiente_documentos: 'Pendiente de documentos',
+  };
+
+  const ESTADO_CLASSES = {
+    radicada: 'b-blue',
+    en_estudio: 'b-amber',
+    en_aprobacion: 'b-amber',
+    aprobada: 'b-green',
+    en_pago: 'b-green',
+    pagada: 'b-green',
+    negada: 'b-red',
+    en_cola_por_fondos: 'b-amber',
+    pendiente_documentos: 'b-amber',
+  };
+
+  const ESTADO_PROGRESS = {
+    radicada: 5,
+    en_estudio: 20,
+    pendiente_documentos: 20,
+    en_aprobacion: 45,
+    aprobada: 60,
+    en_pago: 75,
+    pagada: 100,
+    negada: 100,
+    en_cola_por_fondos: 60,
+  };
+
+  const ESTADO_STEPS = {
+    radicada: 'Solicitud radicada, en espera de revisión',
+    en_estudio: 'En estudio por el comité evaluador',
+    pendiente_documentos: 'El comité solicitó documentos adicionales',
+    en_aprobacion: 'En proceso de aprobación',
+    aprobada: 'Aprobada · En proceso de desembolso',
+    en_pago: 'En proceso de pago',
+    pagada: 'Pago realizado exitosamente',
+    negada: 'Solicitud negada',
+    en_cola_por_fondos: 'Aprobada · En espera de disponibilidad de fondos',
+  };
+
+  // ── Cache ──
+  let adminCachedSolicitudes = [];
+  let adminCachedAsociados = [];
+  let adminCachedAuxilios = [];
+  let adminCurrentModalSolicitudId = null;
+
+  async function fetchJson(url) {
+    const res = await fetch(url, { credentials: 'include' });
+    const json = await res.json();
+    return json.success ? (json.data || []) : [];
+  }
+
+  function getAsociadoName(asociadoId) {
+    const a = adminCachedAsociados.find(a => a.$id === asociadoId);
+    return a ? a.nombre : asociadoId;
+  }
+
+  function getAuxilioName(auxilioId) {
+    const a = adminCachedAuxilios.find(a => a.$id === auxilioId);
+    return a ? a.nombre : 'Auxilio';
+  }
+
+  function formatDate(isoStr) {
+    if (!isoStr) return '—';
+    const d = new Date(isoStr);
+    return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  // ── Render ──
+  async function renderAdminSolicitudes(filterEstado) {
+    const container = document.getElementById('admin-solicitudes-container');
+    container.innerHTML = '<div style="text-align: center; padding: 2rem 1rem; color: var(--text-secondary); font-size: 13px;">Cargando solicitudes...</div>';
+
+    try {
+      // Parallel fetch
+      const [solicitudes, asociados, auxilios] = await Promise.all([
+        fetchJson('/api/solicitudes/admin'),
+        fetchJson('/api/asociados'),
+        fetchJson('/api/auxilios'),
+      ]);
+
+      adminCachedSolicitudes = solicitudes;
+      adminCachedAsociados = asociados;
+      adminCachedAuxilios = auxilios;
+
+      // Filter
+      let filtered = solicitudes;
+      if (filterEstado) {
+        filtered = solicitudes.filter(s => s.estado === filterEstado);
+      }
+
+      document.getElementById('admin-count').textContent = filtered.length + ' solicitud(es)';
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 2rem 1rem; color: var(--text-secondary); font-size: 13px;">No hay solicitudes' + (filterEstado ? ' con ese estado' : '') + '.</div>';
+        return;
+      }
+
+      container.innerHTML = filtered.map(s => {
+        const estadoLabel = ESTADO_LABELS[s.estado] || s.estado;
+        const estadoClass = ESTADO_CLASSES[s.estado] || 'b-gray';
+        const asociadoName = getAsociadoName(s.asociadoId);
+        const auxName = getAuxilioName(s.auxilioId);
+        const fechaText = formatDate(s.fechaRadicacion);
+
+        return `<div class="tramite-row" style="cursor:pointer;" onclick="openAdminModal('${s.$id}')">
+          <div class="tr-top">
+            <span class="tr-name">${auxName}</span>
+            <span class="badge ${estadoClass}">${estadoLabel}</span>
+          </div>
+          <div class="tr-mid">
+            <span style="font-size: 12px; color: var(--text-secondary);">${asociadoName}</span>
+            <span style="font-size: 12px; color: var(--text-secondary);">${fechaText}</span>
+          </div>
+        </div>`;
+      }).join('');
+    } catch (err) {
+      console.error('Error loading admin solicitudes:', err);
+      container.innerHTML = '<div style="text-align: center; padding: 2rem 1rem; color: var(--red-400); font-size: 13px;">Error al cargar solicitudes. Verifique su conexión.</div>';
+    }
+  }
+
+  // ── Modal ──
+  async function openAdminModal(id) {
+    const solicitud = adminCachedSolicitudes.find(s => s.$id === id);
+    if (!solicitud) return;
+
+    adminCurrentModalSolicitudId = id;
+    const asociadoName = getAsociadoName(solicitud.asociadoId);
+    const auxName = getAuxilioName(solicitud.auxilioId);
+    const estadoLabel = ESTADO_LABELS[solicitud.estado] || solicitud.estado;
+    const estadoClass = ESTADO_CLASSES[solicitud.estado] || 'b-gray';
+    const progWidth = ESTADO_PROGRESS[solicitud.estado] || 0;
+    const progClass = estadoClass.replace('b-', 'pb-');
+    const stepText = ESTADO_STEPS[solicitud.estado] || 'En proceso';
+
+    document.getElementById('admin-modal-title').textContent = auxName;
+    document.getElementById('admin-modal-asociado').textContent = asociadoName;
+    document.getElementById('admin-modal-id').textContent = id;
+    document.getElementById('admin-modal-fecha').textContent = formatDate(solicitud.fechaRadicacion);
+
+    const est = document.getElementById('admin-modal-estado');
+    est.textContent = estadoLabel;
+    est.className = 'badge ' + estadoClass;
+
+    const prog = document.getElementById('admin-modal-progress');
+    prog.style.width = progWidth + '%';
+    prog.className = 'progress-bar ' + progClass;
+
+    document.getElementById('admin-modal-step').textContent = stepText;
+
+    // Admin actions
+    const actions = document.getElementById('admin-modal-actions');
+    const isReviewable = solicitud.estado === 'radicada' ||
+      solicitud.estado === 'en_estudio' ||
+      solicitud.estado === 'pendiente_documentos' ||
+      solicitud.estado === 'en_aprobacion' ||
+      solicitud.estado === 'aprobada' ||
+      solicitud.estado === 'en_pago' ||
+      solicitud.estado === 'en_cola_por_fondos';
+
+    if (isReviewable) {
+      actions.style.display = 'block';
+
+      document.getElementById('admin-btn-approve').onclick = () => handleAdminAction(id, 'aprobado');
+      document.getElementById('admin-btn-approve').disabled = false;
+
+      document.getElementById('admin-btn-deny').onclick = () => handleAdminAction(id, 'negado');
+      document.getElementById('admin-btn-deny').disabled = false;
+
+      const btnRequestDocs = document.getElementById('admin-btn-request-docs');
+      if (solicitud.estado === 'en_estudio') {
+        btnRequestDocs.style.display = 'block';
+        btnRequestDocs.onclick = () => openAdminDocsRequestModal(id);
+      } else {
+        btnRequestDocs.style.display = 'none';
+      }
+    } else {
+      actions.style.display = 'none';
+    }
+
+    document.getElementById('admin-modal').classList.add('active');
+  }
+
+  function closeAdminModal() {
+    document.getElementById('admin-modal').classList.remove('active');
+    adminCurrentModalSolicitudId = null;
+  }
+
+  // ── Admin Actions ──
+  async function handleAdminAction(id, accion) {
+    const btnApprove = document.getElementById('admin-btn-approve');
+    const btnDeny = document.getElementById('admin-btn-deny');
+    btnApprove.disabled = true;
+    btnDeny.disabled = true;
+
+    try {
+      const res = await fetch('/api/solicitudes/' + id + '/aprobar', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion }),
+      });
+      const json = await res.json();
+
+      if (!res.ok) {
+        alert(json.error || 'Error al procesar la acción.');
+      } else {
+        closeAdminModal();
+        const filter = document.getElementById('admin-estado-filter').value;
+        renderAdminSolicitudes(filter);
+      }
+    } catch (err) {
+      console.error('Error on admin action:', err);
+      alert('Error de conexión al procesar la acción.');
+    } finally {
+      btnApprove.disabled = false;
+      btnDeny.disabled = false;
+    }
+  }
+
+  // ── Solicitar documentos ──
+  function openAdminDocsRequestModal(solicitudId) {
+    document.getElementById('admin-docs-request-input').value = '';
+    const btnSend = document.getElementById('admin-btn-send-docs-request');
+    btnSend.onclick = () => handleAdminRequestDocs(solicitudId);
+    btnSend.disabled = false;
+    btnSend.textContent = 'Enviar solicitud';
+    document.getElementById('admin-docs-request-modal').classList.add('active');
+  }
+
+  function closeAdminDocsRequestModal() {
+    document.getElementById('admin-docs-request-modal').classList.remove('active');
+  }
+
+  async function handleAdminRequestDocs(id) {
+    const input = document.getElementById('admin-docs-request-input');
+    const raw = input.value.trim();
+    if (!raw) {
+      alert('Debe ingresar al menos un documento requerido.');
+      return;
+    }
+
+    const documentos = raw.split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0);
+    if (documentos.length === 0) {
+      alert('Debe ingresar al menos un documento requerido.');
+      return;
+    }
+
+    const btnSend = document.getElementById('admin-btn-send-docs-request');
+    btnSend.disabled = true;
+    btnSend.textContent = 'Enviando...';
+
+    try {
+      const res = await fetch('/api/solicitudes/' + id + '/solicitar-documentos', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documentosRequeridos: documentos }),
+      });
+      const json = await res.json();
+
+      if (!res.ok) {
+        alert(json.error || 'Error al solicitar documentos.');
+      } else {
+        closeAdminDocsRequestModal();
+        closeAdminModal();
+        const filter = document.getElementById('admin-estado-filter').value;
+        renderAdminSolicitudes(filter);
+      }
+    } catch (err) {
+      console.error('Error requesting docs:', err);
+      alert('Error de conexión al solicitar documentos.');
+    } finally {
+      btnSend.disabled = false;
+      btnSend.textContent = 'Enviar solicitud';
+    }
+  }
+
+  // ── Initialization ──
+  document.addEventListener('DOMContentLoaded', () => {
+    // Filter change
+    document.getElementById('admin-estado-filter').addEventListener('change', () => {
+      const filter = document.getElementById('admin-estado-filter').value;
+      renderAdminSolicitudes(filter);
+    });
+
+    // Refresh button
+    document.getElementById('btn-admin-refresh').addEventListener('click', () => {
+      const filter = document.getElementById('admin-estado-filter').value;
+      renderAdminSolicitudes(filter);
+    });
+  });
+
+  // Listen for tab changes to load data when admin panel becomes visible
+  window.addEventListener('tabChanged', (e) => {
+    if (e.detail.tab === 'admin') {
+      const filter = document.getElementById('admin-estado-filter').value;
+      renderAdminSolicitudes(filter);
+    }
+  });
+
+  // Expose functions needed by HTML onclick handlers
+  window.closeAdminModal = closeAdminModal;
+  window.closeAdminDocsRequestModal = closeAdminDocsRequestModal;
+  window.openAdminModal = openAdminModal;
+  })();
+</script>

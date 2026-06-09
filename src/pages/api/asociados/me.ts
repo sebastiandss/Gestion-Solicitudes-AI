@@ -27,7 +27,10 @@ export const GET: APIRoute = async ({ locals }) => {
       );
     }
 
-    const asociado = result.documents[0] as unknown as Asociado;
+    const asociado = {
+      esAdmin: false,
+      ...result.documents[0],
+    } as unknown as Asociado;
 
     return new Response(
       JSON.stringify({ success: true, data: asociado } satisfies ApiResponse<Asociado>),

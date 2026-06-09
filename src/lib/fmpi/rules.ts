@@ -32,7 +32,7 @@ export interface ScoringResult {
   details: ScoringDetail[];
 }
 
-export type StateAction = AccionAprobacion | 'radicar' | 'cancelar' | 'avanzar';
+export type StateAction = AccionAprobacion | 'radicar' | 'cancelar' | 'avanzar' | 'solicitar_documentos' | 'entregar_documentos';
 
 // ─── Internal helpers ───────────────────────────────────
 
@@ -217,14 +217,20 @@ const STATE_TRANSITIONS: Record<
   Partial<Record<StateAction, EstadoSolicitud>>
 > = {
   radicada: { avanzar: 'en_estudio', cancelar: 'negada' },
-  en_estudio: { aprobado: 'en_aprobacion', negado: 'negada' },
+  en_estudio: { aprobado: 'en_aprobacion', negado: 'negada', solicitar_documentos: 'pendiente_documentos' },
   en_aprobacion: { aprobado: 'aprobada', negado: 'negada' },
   aprobada: { aprobado: 'en_pago' },
   en_pago: { aprobado: 'pagada' },
   pagada: {},    // terminal
   negada: {},    // terminal
   en_cola_por_fondos: { avanzar: 'en_estudio' },
+  pendiente_documentos: {
+    entregar_documentos: 'en_estudio',
+    aprobado: 'en_aprobacion',
+    negado: 'negada',
+  },
 };
+
 
 /** Returns the next state given a current state and action, or null if invalid. */
 export function getNextState(
@@ -241,6 +247,31 @@ export function getValidActions(
   const transitions = STATE_TRANSITIONS[current];
   if (!transitions) return [];
   return Object.keys(transitions) as StateAction[];
+}
+
+// ─── 8b. validateDocumentosRequeridos — guard for document request ──
+
+/**
+ * Validates that `documentosRequeridos` is a non-empty array of
+ * non-empty strings. Used as a pre-transition guard when an admin
+ * requests documents before solicitar_documentos action.
+ */
+export function validateDocumentosRequeridos(
+  documentos: unknown,
+): RuleResult {
+  if (
+    !Array.isArray(documentos) ||
+    documentos.length === 0 ||
+    !documentos.every((item) => typeof item === 'string' && item.trim().length > 0)
+  ) {
+    return {
+      valid: false,
+      errors: [
+        'documentosRequeridos debe ser un arreglo no vacío de nombres de documentos.',
+      ],
+    };
+  }
+  return { valid: true, errors: [] };
 }
 
 // ─── 9. Composite: validateSolicitud ─────────────────────
@@ -297,6 +328,7 @@ export function estadoLabel(estado: EstadoSolicitud): string {
     pagada: 'Pagada',
     negada: 'Negada',
     en_cola_por_fondos: 'En espera por fondos',
+    pendiente_documentos: 'Pendiente de documentos',
   };
   return labels[estado] || estado;
 }
@@ -312,6 +344,7 @@ export function estadoProgress(estado: EstadoSolicitud): number {
     pagada: 100,
     negada: 100,
     en_cola_por_fondos: 60,
+    pendiente_documentos: 25,
   };
   return progress[estado] ?? 0;
 }
@@ -327,6 +360,7 @@ export function estadoBadgeClass(estado: EstadoSolicitud): string {
     pagada: 'b-green',
     negada: 'b-red',
     en_cola_por_fondos: 'b-amber',
+    pendiente_documentos: 'b-amber',
   };
   return classes[estado] || 'b-gray';
 }

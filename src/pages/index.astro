@@ -7,6 +7,7 @@ import NuevaSolicitud from "../components/views/NuevaSolicitud.astro";
 import ProgramasDisponibles from "../components/views/ProgramasDisponibles.astro";
 import Beneficiarios from "../components/views/Beneficiarios.astro";
 import Notificaciones from "../components/views/Notificaciones.astro";
+import AdminPanel from "../components/views/AdminPanel.astro";
 
 // ── SSR: session check via middleware ──
 // La middleware ya protege la ruta y pone locals.user.
@@ -30,11 +31,12 @@ const idInfo = user.cedula
     userEmail={user.email}
   />
 
-  <NavigationTabs />
+  <NavigationTabs esAdmin={Astro.locals.esAdmin ?? false} />
 
-  <MisTramites />
+  <MisTramites esAdmin={Astro.locals.esAdmin ?? false} />
   <NuevaSolicitud />
   <ProgramasDisponibles />
   <Beneficiarios />
   <Notificaciones />
+  <AdminPanel esAdmin={Astro.locals.esAdmin ?? false} />
 </BaseLayout>

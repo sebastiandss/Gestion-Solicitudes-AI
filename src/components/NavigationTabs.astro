@@ -1,5 +1,10 @@
 ---
 // NavigationTabs.astro
+export interface Props {
+  esAdmin?: boolean;
+}
+
+const { esAdmin = false } = Astro.props;
 ---
 
 <div class="tabs" id="mainTabs">
@@ -8,4 +13,5 @@
   <div class="tab" onclick="switchTab('programas')">Programas disponibles</div>
   <div class="tab" onclick="switchTab('beneficiarios')">Beneficiarios</div>
   <div class="tab" onclick="switchTab('notificaciones')">Notificaciones</div>
+  {esAdmin && <div class="tab" onclick="switchTab('admin')">Panel admin</div>}
 </div>

@@ -79,6 +79,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
         const asociado = result.documents[0] as unknown as Asociado;
         locals.estado = asociado.estado;
         locals.estadoContribucion = asociado.estadoContribucion;
+        locals.esAdmin = asociado.esAdmin ?? false;
       }
     } catch {
       // asociados collection may not exist yet — non-fatal

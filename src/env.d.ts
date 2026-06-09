@@ -11,6 +11,8 @@ declare global {
       estado: EstadoAsociado | null;
       /** FMPI contribution status — set by middleware via asociados lookup. */
       estadoContribucion: EstadoContribucion | null;
+      /** Admin flag — set by middleware from asociado record; cached per-request. */
+      esAdmin: boolean | null;
     }
   }
 }

@@ -313,6 +313,39 @@ const { title } = Astro.props;
         color: var(--red-800);
       }
 
+      /* ── Modal overlay ── */
+      .modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.45);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+      }
+      .modal-overlay.active {
+        display: flex;
+      }
+      .modal-content {
+        background: #fff;
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+        max-width: 520px;
+        width: 90%;
+        max-height: 85vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+      }
+      .modal-close {
+        cursor: pointer;
+        font-size: 18px;
+        color: var(--text-secondary);
+        line-height: 1;
+      }
+      .modal-close:hover {
+        color: var(--text-primary);
+      }
+
       /* ── IA Panel ── */
       .ia-panel {
         background: var(--blue-50);
@@ -621,7 +654,7 @@ const { title } = Astro.props;
     <script is:inline>
       /* ── Global Scripts ── */
       function switchTab(name) {
-        const views = ["tramites", "nueva", "programas", "beneficiarios", "notificaciones"];
+        const views = ["tramites", "nueva", "programas", "beneficiarios", "notificaciones", "admin"];
         views.forEach((v) => {
           const el = document.getElementById("view-" + v);
           if (el) el.style.display = v === name ? "block" : "none";

@@ -1,8 +1,13 @@
 ---
 // MisTramites.astro
+export interface Props {
+  esAdmin?: boolean;
+}
+
+const { esAdmin = false } = Astro.props;
 ---
 
-<div id="view-tramites">
+<div id="view-tramites" data-es-admin={esAdmin ? 'true' : 'false'}>
   <div class="summary-grid">
     <div class="sum-card">
       <div class="sum-label">Trámites totales</div>
@@ -77,6 +82,36 @@
         <div id="modal-ia-rejection-content" style="font-size: 12px; color: var(--text-primary);"></div>
       </div>
 
+      <!-- Re-upload banner for pendiente_documentos (owner) -->
+      <div id="modal-reupload-banner" style="display:none; margin-bottom: 1rem; padding: 12px; background: var(--amber-50); border: 0.5px solid var(--amber-400); border-radius: var(--radius-md);">
+        <div style="font-size: 13px; font-weight: 500; color: var(--amber-800); margin-bottom: 6px;">
+          ⚠️ El comité solicitó documentos adicionales
+        </div>
+        <div id="modal-docs-required" style="font-size: 12px; color: var(--text-primary); margin-bottom: 10px; white-space: pre-line;"></div>
+        <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px;">
+          Entregar documentos (adjuntar archivos)
+        </label>
+        <input type="file" id="modal-doc-files" multiple style="font-size: 12px; margin-bottom: 8px; width: 100%;" />
+        <button type="button" class="submit-btn" id="btn-deliver-docs" style="padding: 8px; font-size: 13px;">
+          📎 Entregar documentos
+        </button>
+      </div>
+
+      <!-- Admin action buttons -->
+      <div id="modal-admin-actions" style="display:none; margin-bottom: 1rem;">
+        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+          <button type="button" class="submit-btn" id="btn-approve" style="flex: 1; padding: 8px; font-size: 13px; background: var(--green-600);">
+            ✓ Aprobar
+          </button>
+          <button type="button" class="cancel-btn" id="btn-deny" style="flex: 1; margin-top: 0; padding: 8px; font-size: 13px; border-color: var(--red-400); color: var(--red-400);">
+            ✕ Denegar
+          </button>
+        </div>
+        <button type="button" class="cancel-btn" id="btn-request-docs" style="width: 100%; margin-top: 0; padding: 8px; font-size: 13px; border-color: var(--amber-400); color: var(--amber-800);">
+          📄 Solicitar más documentos
+        </button>
+      </div>
+
       <button type="button" class="cancel-btn" id="btn-ia-reject" style="width: 100%; border-color: var(--teal-400); color: var(--teal-400); margin-bottom: 8px; font-weight: 500;">
         ✨ Analizar riesgo de rechazo (IA)
       </button>
@@ -87,31 +122,29 @@
       </div>
     </div>
   </div>
-</div>
 
-<style is:global>
-  /* Modal Styles */
-  .modal-overlay {
-    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.5);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 1000;
-    opacity: 0; pointer-events: none; transition: opacity 0.2s;
-  }
-  .modal-overlay.active { opacity: 1; pointer-events: all; }
-  .modal-content {
-    background: var(--surface); padding: 1.5rem; border-radius: var(--radius-lg);
-    width: 90%; max-width: 400px;
-    transform: translateY(20px); transition: transform 0.2s;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-  }
-  .modal-overlay.active .modal-content { transform: translateY(0); }
-  .modal-close { 
-    cursor: pointer; color: var(--text-secondary);
-    font-size: 18px; line-height: 1;
-  }
-  .modal-close:hover { color: var(--text-primary); }
-</style>
+  <!-- Modal: Solicitar documentos (admin) -->
+  <div class="modal-overlay" id="docs-request-modal">
+    <div class="modal-content">
+      <div class="tr-top" style="margin-bottom: 12px;">
+        <span class="tr-name" style="font-size: 16px;">Solicitar documentos adicionales</span>
+        <span class="modal-close" onclick="closeDocsRequestModal()">✕</span>
+      </div>
+      <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
+        Ingresa los nombres de los documentos requeridos (uno por línea o separados por coma).
+      </div>
+      <textarea id="docs-request-input" rows="4" class="ftextarea" style="margin-bottom: 12px;" placeholder="Ej: Cédula de ciudadanía&#10;Certificado de defunción&#10;Factura del evento"></textarea>
+      <div style="display: flex; gap: 8px;">
+        <button type="button" class="submit-btn" id="btn-send-docs-request" style="flex: 1; padding: 10px; font-size: 13px;">
+          Enviar solicitud
+        </button>
+        <button type="button" class="cancel-btn" style="flex: 1; margin-top: 0; padding: 10px; font-size: 13px;" onclick="closeDocsRequestModal()">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script is:inline>
   // ── State mapping helpers ─────────────────────────────────
@@ -124,6 +157,7 @@
     pagada: 'Pagada',
     negada: 'Negada',
     en_cola_por_fondos: 'En espera por fondos',
+    pendiente_documentos: 'Pendiente de documentos',
   };
 
   const ESTADO_CLASSES = {
@@ -135,6 +169,7 @@
     pagada: 'b-green',
     negada: 'b-red',
     en_cola_por_fondos: 'b-amber',
+    pendiente_documentos: 'b-amber',
   };
 
   const ESTADO_PROGRESS = {
@@ -146,6 +181,7 @@
     pagada: 100,
     negada: 100,
     en_cola_por_fondos: 60,
+    pendiente_documentos: 25,
   };
 
   const ESTADO_STEPS = {
@@ -157,11 +193,19 @@
     pagada: 'Pago realizado exitosamente',
     negada: 'Solicitud negada',
     en_cola_por_fondos: 'Aprobada · En espera de disponibilidad de fondos',
+    pendiente_documentos: 'Pendiente: el comité solicitó documentos adicionales',
   };
+
+  // Read esAdmin from data attribute (set server-side)
+  function isAdmin() {
+    const view = document.getElementById('view-tramites');
+    return view ? view.dataset.esAdmin === 'true' : false;
+  }
 
   // ── Cache ────────────────────────────────────────────────
   let cachedAuxilios = null;
   let cachedSolicitudes = null;
+  let currentModalSolicitudId = null; // for admin actions / re-upload
 
   async function fetchAuxilios() {
     if (cachedAuxilios) return cachedAuxilios;
@@ -230,7 +274,7 @@
 
         if (ultimo.estado === 'aprobada' || ultimo.estado === 'en_pago' || ultimo.estado === 'pagada')
           estadoEl.style.color = 'var(--green-400)';
-        else if (ultimo.estado === 'en_estudio' || ultimo.estado === 'en_aprobacion' || ultimo.estado === 'en_cola_por_fondos')
+        else if (ultimo.estado === 'en_estudio' || ultimo.estado === 'en_aprobacion' || ultimo.estado === 'en_cola_por_fondos' || ultimo.estado === 'pendiente_documentos')
           estadoEl.style.color = 'var(--amber-400)';
         else if (ultimo.estado === 'negada')
           estadoEl.style.color = 'var(--red-400)';
@@ -334,6 +378,7 @@
     const solicitud = cachedSolicitudes.find(s => s.$id === id);
     if (!solicitud) return;
 
+    currentModalSolicitudId = id;
     const auxilios = await fetchAuxilios();
     const auxName = getAuxilioName(solicitud.auxilioId, auxilios);
     const estadoLabel = ESTADO_LABELS[solicitud.estado] || solicitud.estado;
@@ -373,7 +418,210 @@
     btnIa.disabled = false;
     btnIa.onclick = () => analizarRechazoIA(id);
 
+    // ── Admin actions ───────────────────────────────────
+    const adminActions = document.getElementById('modal-admin-actions');
+    const isReviewable = solicitud.estado === 'en_estudio' ||
+                         solicitud.estado === 'pendiente_documentos' ||
+                         solicitud.estado === 'en_aprobacion' ||
+                         solicitud.estado === 'aprobada' ||
+                         solicitud.estado === 'en_pago' ||
+                         solicitud.estado === 'en_cola_por_fondos';
+
+    if (isAdmin() && isReviewable) {
+      adminActions.style.display = 'block';
+
+      // Aprobar button
+      const btnApprove = document.getElementById('btn-approve');
+      btnApprove.onclick = () => handleAdminAction(id, 'aprobado');
+      btnApprove.disabled = false;
+      btnApprove.textContent = '✓ Aprobar';
+
+      // Denegar button
+      const btnDeny = document.getElementById('btn-deny');
+      btnDeny.onclick = () => handleAdminAction(id, 'negado');
+      btnDeny.disabled = false;
+      btnDeny.textContent = '✕ Denegar';
+
+      // Solicitar más documentos — only for en_estudio
+      const btnRequestDocs = document.getElementById('btn-request-docs');
+      if (solicitud.estado === 'en_estudio') {
+        btnRequestDocs.style.display = 'block';
+        btnRequestDocs.onclick = () => openDocsRequestModal(id);
+      } else {
+        btnRequestDocs.style.display = 'none';
+      }
+    } else {
+      adminActions.style.display = 'none';
+    }
+
+    // ── Re-upload banner for pendiente_documentos ───────
+    const reuploadBanner = document.getElementById('modal-reupload-banner');
+    if (solicitud.estado === 'pendiente_documentos' && !isAdmin()) {
+      reuploadBanner.style.display = 'block';
+
+      // Show required docs
+      let docsReq = solicitud.documentosRequeridos;
+      if (typeof docsReq === 'string') {
+        try { docsReq = JSON.parse(docsReq); } catch (e) { docsReq = []; }
+      }
+      const docsList = Array.isArray(docsReq)
+        ? docsReq.map(d => `• ${d}`).join('\n')
+        : 'Documentos solicitados por el comité evaluador.';
+      document.getElementById('modal-docs-required').textContent = docsList;
+
+      // Deliver button
+      const btnDeliver = document.getElementById('btn-deliver-docs');
+      btnDeliver.onclick = () => handleDeliverDocs(id);
+      btnDeliver.disabled = false;
+      btnDeliver.textContent = '📎 Entregar documentos';
+    } else {
+      reuploadBanner.style.display = 'none';
+    }
+
     document.getElementById('tramite-modal').classList.add('active');
+  }
+
+  // ── Admin: Aprobar / Denegar ────────────────────────────
+
+  async function handleAdminAction(id, accion) {
+    const btnApprove = document.getElementById('btn-approve');
+    const btnDeny = document.getElementById('btn-deny');
+    btnApprove.disabled = true;
+    btnDeny.disabled = true;
+
+    try {
+      const res = await fetch('/api/solicitudes/' + id + '/aprobar', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion }),
+      });
+      const json = await res.json();
+
+      if (!res.ok) {
+        alert(json.error || 'Error al procesar la acción.');
+      } else {
+        closeDetalleModal();
+        cachedSolicitudes = null;
+        renderTramites();
+      }
+    } catch (err) {
+      console.error('Error on admin action:', err);
+      alert('Error de conexión al procesar la acción.');
+    } finally {
+      btnApprove.disabled = false;
+      btnDeny.disabled = false;
+    }
+  }
+
+  // ── Admin: Solicitar documentos ─────────────────────────
+
+  function openDocsRequestModal(solicitudId) {
+    document.getElementById('docs-request-input').value = '';
+    const btnSend = document.getElementById('btn-send-docs-request');
+    btnSend.onclick = () => handleRequestDocs(solicitudId);
+    btnSend.disabled = false;
+    btnSend.textContent = 'Enviar solicitud';
+    document.getElementById('docs-request-modal').classList.add('active');
+  }
+
+  function closeDocsRequestModal() {
+    document.getElementById('docs-request-modal').classList.remove('active');
+  }
+
+  async function handleRequestDocs(id) {
+    const input = document.getElementById('docs-request-input');
+    const raw = input.value.trim();
+    if (!raw) {
+      alert('Debe ingresar al menos un documento requerido.');
+      return;
+    }
+
+    // Parse: lines or comma-separated
+    const documentos = raw
+      .split(/[\n,]+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+
+    if (documentos.length === 0) {
+      alert('Debe ingresar al menos un documento requerido.');
+      return;
+    }
+
+    const btnSend = document.getElementById('btn-send-docs-request');
+    btnSend.disabled = true;
+    btnSend.textContent = 'Enviando...';
+
+    try {
+      const res = await fetch('/api/solicitudes/' + id + '/solicitar-documentos', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documentosRequeridos: documentos }),
+      });
+      const json = await res.json();
+
+      if (!res.ok) {
+        alert(json.error || 'Error al solicitar documentos.');
+      } else {
+        closeDocsRequestModal();
+        closeDetalleModal();
+        cachedSolicitudes = null;
+        renderTramites();
+      }
+    } catch (err) {
+      console.error('Error requesting docs:', err);
+      alert('Error de conexión al solicitar documentos.');
+    } finally {
+      btnSend.disabled = false;
+      btnSend.textContent = 'Enviar solicitud';
+    }
+  }
+
+  // ── Asociado: Entregar documentos ───────────────────────
+
+  async function handleDeliverDocs(id) {
+    const fileInput = document.getElementById('modal-doc-files');
+    const files = fileInput.files;
+
+    // Collect file names as the documentosEntregados list
+    const docNames = [];
+    if (files && files.length > 0) {
+      for (let i = 0; i < files.length; i++) {
+        docNames.push(files[i].name);
+      }
+    } else {
+      alert('Seleccione al menos un archivo para entregar.');
+      return;
+    }
+
+    const btnDeliver = document.getElementById('btn-deliver-docs');
+    btnDeliver.disabled = true;
+    btnDeliver.textContent = 'Entregando...';
+
+    try {
+      const res = await fetch('/api/solicitudes/' + id + '/entregar-documentos', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documentosEntregados: docNames }),
+      });
+      const json = await res.json();
+
+      if (!res.ok) {
+        alert(json.error || 'Error al entregar documentos.');
+      } else {
+        closeDetalleModal();
+        cachedSolicitudes = null;
+        renderTramites();
+      }
+    } catch (err) {
+      console.error('Error delivering docs:', err);
+      alert('Error de conexión al entregar documentos.');
+    } finally {
+      btnDeliver.disabled = false;
+      btnDeliver.textContent = '📎 Entregar documentos';
+    }
   }
 
   async function deleteTramite(id) {
@@ -447,6 +695,7 @@
 
   function closeDetalleModal() {
     document.getElementById('tramite-modal').classList.remove('active');
+    currentModalSolicitudId = null;
   }
 
   // ── Initialization ──────────────────────────────────────
