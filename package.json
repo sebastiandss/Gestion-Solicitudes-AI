@@ -15,7 +15,11 @@
   },
   "dependencies": {
     "@astrojs/vercel": "^10.0.4",
+    "appwrite": "^22.4.1",
     "astro": "^6.1.7",
-    "node-appwrite": "^26.1.0"
+    "node-appwrite": "^26.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3"
   }
 }

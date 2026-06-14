@@ -1,0 +1,369 @@
+---
+// src/components/views/UserManagement.astro
+// Componente para gestión completa de usuarios
+---
+
+<div id="view-usuarios" style="display:none;">
+  <div class="card">
+    <div class="sec-title" style="margin-bottom: 1rem;">
+      <span class="sec-title-dot"></span>👥 Gestión de Usuarios
+    </div>
+    
+    <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
+      <button type="button" class="submit-btn" onclick="openCreateUserModal()" style="margin: 0; padding: 6px 16px; font-size: 13px;">
+        + Crear usuario
+      </button>
+    </div>
+
+    <!-- Tabla de usuarios -->
+    <div style="overflow-x: auto;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <thead>
+          <tr style="border-bottom: 1px solid var(--border); background: var(--gray-bg);">
+            <th style="text-align: left; padding: 12px;">Nombre</th>
+            <th style="text-align: left; padding: 12px;">Cédula</th>
+            <th style="text-align: left; padding: 12px;">Estado</th>
+            <th style="text-align: left; padding: 12px;">Rol</th>
+            <th style="text-align: left; padding: 12px;">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="usuarios-tbody">
+          <tr><td colspan="5" style="text-align: center; padding: 2rem;">Cargando usuarios...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Paginación -->
+    <div style="display: flex; justify-content: center; gap: 1rem; margin-top: 1rem;">
+      <button class="cancel-btn" id="usuariosPrevPageBtn" style="margin: 0; padding: 6px 16px;" disabled>Anterior</button>
+      <span id="usuariosPageInfo" style="font-size: 13px; padding: 6px 12px; color: var(--text-secondary);">Página 1</span>
+      <button class="cancel-btn" id="usuariosNextPageBtn" style="margin: 0; padding: 6px 16px;">Siguiente</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Crear/Editar Usuario -->
+<div class="modal-overlay" id="userModal" style="display:none;">
+  <div class="modal-content">
+    <div class="tr-top" style="margin-bottom: 12px;">
+      <span class="tr-name" id="modalTitle" style="font-size: 16px;">Crear usuario</span>
+      <span class="modal-close" onclick="closeUserModal()">✕</span>
+    </div>
+    <input type="hidden" id="editUserId" />
+    
+    <form id="userForm" onsubmit="saveUser(event)">
+      <div class="form-row-1" style="margin-bottom: 12px;">
+        <label class="flabel">Nombre completo *</label>
+        <input type="text" id="userName" class="finput" required />
+      </div>
+      
+      <div class="form-row-1" style="margin-bottom: 12px;">
+        <label class="flabel">Cédula *</label>
+        <input type="text" id="userCedula" class="finput" required />
+      </div>
+      
+      <div class="form-row-1" style="margin-bottom: 12px;" id="passwordDiv">
+        <label class="flabel">Contraseña *</label>
+        <input type="password" id="userPassword" class="finput" />
+        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">Mínimo 8 caracteres (requerido para nuevos usuarios)</div>
+      </div>
+      
+      <div style="display: flex; gap: 1rem; margin-bottom: 12px;">
+        <div style="flex: 1;">
+          <label class="flabel">Estado</label>
+          <select id="userEstado" class="finput">
+            <option value="activo">Activo</option>
+            <option value="inactivo">Inactivo</option>
+            <option value="suspendido">Suspendido</option>
+          </select>
+        </div>
+        <div style="flex: 1; display: flex; align-items: center;">
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="userIsAdmin" />
+            <span style="font-size: 13px;">👑 Administrador</span>
+          </label>
+        </div>
+      </div>
+      
+      <div id="modalAlert" class="auth-alert" style="display:none; margin-bottom: 12px;"></div>
+      
+      <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px;">
+        <button type="button" class="cancel-btn" onclick="closeUserModal()" style="margin: 0;">Cancelar</button>
+        <button type="submit" class="submit-btn" style="margin: 0;">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Ver Detalles -->
+<div class="modal-overlay" id="viewUserModal" style="display:none;">
+  <div class="modal-content" style="max-width: 450px;">
+    <div class="tr-top" style="margin-bottom: 12px;">
+      <span class="tr-name" style="font-size: 16px;">Detalles del usuario</span>
+      <span class="modal-close" onclick="closeViewUserModal()">✕</span>
+    </div>
+    <div style="margin: 1rem 0;">
+      <p><strong>ID:</strong> <span id="viewUserId"></span></p>
+      <p><strong>Nombre:</strong> <span id="viewUserName"></span></p>
+      <p><strong>Cédula:</strong> <span id="viewUserCedula"></span></p>
+      <p><strong>Estado:</strong> <span id="viewUserEstado"></span></p>
+      <p><strong>Administrador:</strong> <span id="viewUserAdmin"></span></p>
+      <p><strong>Fecha afiliación:</strong> <span id="viewUserFecha"></span></p>
+    </div>
+    <button type="button" class="submit-btn" style="width: 100%;" onclick="closeViewUserModal()">Cerrar</button>
+  </div>
+</div>
+
+<!-- Toast de notificación -->
+<div id="toastMessage" style="position: fixed; bottom: 20px; right: 20px; background: var(--green-600); color: white; padding: 12px 20px; border-radius: 8px; font-size: 14px; z-index: 2000; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+  <span id="toastText"></span>
+</div>
+
+<style is:global>
+  .action-link {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+  .action-link:hover {
+    background: var(--gray-bg);
+  }
+</style>
+
+<script is:inline>
+  let currentPage = 1;
+  let totalPages = 1;
+  let pendingDeleteId = null;
+
+  function showToast(message, isError = false) {
+    const toast = document.getElementById('toastMessage');
+    const toastText = document.getElementById('toastText');
+    toastText.textContent = message;
+    toast.style.backgroundColor = isError ? 'var(--red-600)' : 'var(--green-600)';
+    toast.style.display = 'block';
+    setTimeout(() => {
+      toast.style.display = 'none';
+    }, 3000);
+  }
+
+  async function loadUsers() {
+    const tbody = document.getElementById('usuarios-tbody');
+    const limit = 5;
+    
+    if (!tbody) return;
+    
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem;">Cargando usuarios...</td></tr>';
+    
+    try {
+      const res = await fetch(`/api/users?page=${currentPage}&limit=${limit}`);
+      const data = await res.json();
+      
+      if (data.success) {
+        if (data.users.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem;">No hay usuarios registrados</td></tr>';
+        } else {
+          tbody.innerHTML = data.users.map(user => `
+            <tr style="border-bottom: 1px solid var(--border);">
+              <td style="padding: 12px;"><strong>${escapeHtml(user.nombre)}</strong></td>
+              <td style="padding: 12px;">${escapeHtml(user.cedula)}</td>
+              <td style="padding: 12px;">
+                <span class="badge ${user.estado === 'activo' ? 'b-green' : user.estado === 'inactivo' ? 'b-red' : 'b-amber'}">
+                  ${user.estado === 'activo' ? 'Activo' : user.estado === 'inactivo' ? 'Inactivo' : 'Suspendido'}
+                </span>
+              </td>
+              <td style="padding: 12px;">
+                <span class="badge ${user.esAdmin ? 'b-blue' : 'b-gray'}">
+                  ${user.esAdmin ? 'Administrador' : 'Usuario'}
+                </span>
+              </td>
+              <td style="padding: 12px;">
+                <div style="display: flex; gap: 8px;">
+                  <button class="action-link" onclick="verDetallesUsuario('${user.userId}')" style="color: var(--blue-600);">👁️ Ver</button>
+                  <button class="action-link" onclick="editarUsuario('${user.userId}')" style="color: var(--amber-600);">✏️ Editar</button>
+                  <button class="action-link" onclick="eliminarUsuario('${user.userId}')" style="color: var(--red-600);">🗑️ Eliminar</button>
+                </div>
+              </td>
+            </tr>
+          `).join('');
+        }
+        
+        totalPages = data.totalPages;
+        document.getElementById('usuariosPageInfo').innerHTML = `Página ${currentPage} de ${totalPages}`;
+        document.getElementById('usuariosPrevPageBtn').disabled = currentPage <= 1;
+        document.getElementById('usuariosNextPageBtn').disabled = currentPage >= totalPages;
+      }
+    } catch (err) {
+      console.error(err);
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--red-400);">Error al cargar usuarios</td></tr>';
+    }
+  }
+
+  window.verDetallesUsuario = async (userId) => {
+    try {
+      const res = await fetch(`/api/users/${userId}`);
+      const data = await res.json();
+      if (data.success) {
+        document.getElementById('viewUserId').textContent = data.user.userId;
+        document.getElementById('viewUserName').textContent = data.user.nombre;
+        document.getElementById('viewUserCedula').textContent = data.user.cedula;
+        document.getElementById('viewUserEstado').innerHTML = `<span class="badge ${data.user.estado === 'activo' ? 'b-green' : data.user.estado === 'inactivo' ? 'b-red' : 'b-amber'}">${data.user.estado === 'activo' ? 'Activo' : data.user.estado === 'inactivo' ? 'Inactivo' : 'Suspendido'}</span>`;
+        document.getElementById('viewUserAdmin').innerHTML = data.user.esAdmin ? '<span class="badge b-blue">Administrador</span>' : '<span class="badge b-gray">Usuario</span>';
+        document.getElementById('viewUserFecha').textContent = data.user.fechaAfiliacion ? new Date(data.user.fechaAfiliacion).toLocaleDateString() : 'N/A';
+        document.getElementById('viewUserModal').style.display = 'flex';
+      } else {
+        showToast('Error al cargar detalles', true);
+      }
+    } catch (err) {
+      showToast('Error de conexión', true);
+    }
+  };
+
+  window.closeViewUserModal = () => {
+    document.getElementById('viewUserModal').style.display = 'none';
+  };
+
+  window.editarUsuario = async (userId) => {
+    try {
+      const res = await fetch(`/api/users/${userId}`);
+      const data = await res.json();
+      if (data.success) {
+        document.getElementById('modalTitle').textContent = 'Editar usuario';
+        document.getElementById('editUserId').value = data.user.userId;
+        document.getElementById('userName').value = data.user.nombre;
+        document.getElementById('userCedula').value = data.user.cedula;
+        document.getElementById('userEstado').value = data.user.estado;
+        document.getElementById('userIsAdmin').checked = data.user.esAdmin;
+        document.getElementById('passwordDiv').style.display = 'none';
+        document.getElementById('userModal').style.display = 'flex';
+      }
+    } catch (err) {
+      showToast('Error al cargar usuario', true);
+    }
+  };
+
+  window.openCreateUserModal = () => {
+    document.getElementById('modalTitle').textContent = 'Crear usuario';
+    document.getElementById('editUserId').value = '';
+    document.getElementById('userName').value = '';
+    document.getElementById('userCedula').value = '';
+    document.getElementById('userPassword').value = '';
+    document.getElementById('userEstado').value = 'activo';
+    document.getElementById('userIsAdmin').checked = false;
+    document.getElementById('passwordDiv').style.display = 'block';
+    document.getElementById('userModal').style.display = 'flex';
+  };
+
+  window.saveUser = async (event) => {
+    event.preventDefault();
+    
+    const userId = document.getElementById('editUserId').value;
+    const name = document.getElementById('userName').value.trim();
+    const cedula = document.getElementById('userCedula').value.trim();
+    const password = document.getElementById('userPassword').value;
+    const estado = document.getElementById('userEstado').value;
+    const isAdmin = document.getElementById('userIsAdmin').checked;
+
+    if (!name || !cedula) {
+      showToast('Nombre y cédula son obligatorios', true);
+      return;
+    }
+
+    if (!userId && (!password || password.length < 8)) {
+      showToast('La contraseña debe tener al menos 8 caracteres', true);
+      return;
+    }
+
+    const url = userId ? `/api/users/${userId}` : '/api/users';
+    const method = userId ? 'PUT' : 'POST';
+    const body = userId ? { name, cedula, estado, isAdmin } : { name, cedula, password, estado, isAdmin };
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (data.success) {
+        closeUserModal();
+        loadUsers();
+        showToast(userId ? '✅ Usuario actualizado exitosamente' : '✅ Usuario creado exitosamente');
+      } else {
+        showToast(data.error || 'Error al guardar', true);
+      }
+    } catch (err) {
+      showToast('Error de conexión', true);
+    }
+  };
+
+  window.eliminarUsuario = (userId) => {
+    if (confirm('¿Estás seguro de que deseas eliminar este usuario? Esta acción no se puede deshacer.')) {
+      pendingDeleteId = userId;
+      confirmarEliminar();
+    }
+  };
+
+  window.confirmarEliminar = async () => {
+    if (!pendingDeleteId) return;
+    try {
+      const res = await fetch(`/api/users/${pendingDeleteId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        showToast('✅ Usuario eliminado exitosamente');
+        pendingDeleteId = null;
+        loadUsers();
+      } else {
+        showToast('Error al eliminar', true);
+      }
+    } catch (err) {
+      showToast('Error de conexión', true);
+    }
+  };
+
+  window.closeUserModal = () => {
+    document.getElementById('userModal').style.display = 'none';
+    document.getElementById('modalAlert').style.display = 'none';
+  };
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+      if (m === '&') return '&amp;';
+      if (m === '<') return '&lt;';
+      if (m === '>') return '&gt;';
+      return m;
+    });
+  }
+
+  // Eventos de paginación
+  document.getElementById('usuariosPrevPageBtn').onclick = () => {
+    if (currentPage > 1) {
+      currentPage--;
+      loadUsers();
+    }
+  };
+
+  document.getElementById('usuariosNextPageBtn').onclick = () => {
+    if (currentPage < totalPages) {
+      currentPage++;
+      loadUsers();
+    }
+  };
+
+  // Escuchar cambio de pestaña
+  window.addEventListener('tabChanged', (e) => {
+    if (e.detail.tab === 'usuarios') {
+      currentPage = 1;
+      loadUsers();
+    }
+  });
+
+  // Cargar usuarios si la vista está visible
+  if (document.getElementById('view-usuarios').style.display !== 'none') {
+    loadUsers();
+  }
+</script>

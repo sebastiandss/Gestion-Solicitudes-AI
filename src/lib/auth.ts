@@ -44,45 +44,6 @@ function mapUser(user: Models.User<Models.Preferences>, prefs: Models.Preference
 
 // ─── Auth Operations ──────────────────────────────────
 
-/**
- * Register a new user and create an active session.
- * Cedula is stored in user preferences after account creation.
- */
-export async function registerUser(
-  email: string,
-  password: string,
-  name: string,
-  cedula: string,
-): Promise<AuthResult & { session?: Models.Session }> {
-  try {
-    // 1. Create user and set prefs via admin API (bypasses guest scope restrictions)
-    const users = getAdminUsers();
-    // Usamos objeto para no enviar phone (no lo necesitamos)
-    const newUser = await users.create({
-      userId: ID.unique(),
-      email,
-      password,
-      name,
-    });
-
-    // 2. Store cédula in prefs
-    await users.updatePrefs(newUser.$id, { cedula });
-
-    // 3. Create session via admin API (no guest scope needed)
-    const session = await users.createSession(newUser.$id);
-
-    // 4. Fetch full user data with session
-    const client = createSessionClient(session.secret);
-    const account = new Account(client);
-    const user = await account.get();
-    const prefs = await account.getPrefs();
-
-    return { success: true, user: mapUser(user, prefs), session };
-  } catch (err: unknown) {
-    const message = extractAppwriteError(err, 'Error al registrar usuario');
-    return { success: false, error: message };
-  }
-}
 
 /**
  * Login with email + password.

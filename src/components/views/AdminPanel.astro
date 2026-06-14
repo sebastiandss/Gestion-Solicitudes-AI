@@ -1,7 +1,6 @@
 ---
-// AdminPanel.astro
+// src/components/views/AdminPanel.astro
 // Admin-only view: lists ALL solicitudes from all users with admin actions.
-
 export interface Props {
   esAdmin?: boolean;
 }
@@ -44,7 +43,7 @@ const { esAdmin = false } = Astro.props;
     </div>
   </div>
 
-  <!-- Modal: detalle de solicitud (reusa mismos estilos que MisTramites) -->
+  <!-- Modal: detalle de solicitud -->
   <div class="modal-overlay" id="admin-modal">
     <div class="modal-content">
       <div class="tr-top" style="margin-bottom: 12px;">
@@ -66,7 +65,6 @@ const { esAdmin = false } = Astro.props;
       </div>
       <div id="admin-modal-step" style="font-size: 13px; margin-bottom: 16px;"></div>
 
-      <!-- Actions container -->
       <div id="admin-modal-actions" style="display:none;">
         <div style="display: flex; gap: 8px; margin-bottom: 8px;">
           <button type="button" class="submit-btn" id="admin-btn-approve" style="flex: 1; padding: 8px; font-size: 13px; background: var(--green-600);">✓ Aprobar</button>
@@ -100,7 +98,6 @@ const { esAdmin = false } = Astro.props;
 
 <script is:inline>
   (() => {
-  // ── State mapping helpers (duplicated from MisTramites for independence) ──
   const ESTADO_LABELS = {
     radicada: 'Radicada',
     en_estudio: 'En estudio',
@@ -149,11 +146,9 @@ const { esAdmin = false } = Astro.props;
     en_cola_por_fondos: 'Aprobada · En espera de disponibilidad de fondos',
   };
 
-  // ── Cache ──
   let adminCachedSolicitudes = [];
   let adminCachedAsociados = [];
   let adminCachedAuxilios = [];
-  let adminCurrentModalSolicitudId = null;
 
   async function fetchJson(url) {
     const res = await fetch(url, { credentials: 'include' });
@@ -177,13 +172,11 @@ const { esAdmin = false } = Astro.props;
     return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
-  // ── Render ──
   async function renderAdminSolicitudes(filterEstado) {
     const container = document.getElementById('admin-solicitudes-container');
     container.innerHTML = '<div style="text-align: center; padding: 2rem 1rem; color: var(--text-secondary); font-size: 13px;">Cargando solicitudes...</div>';
 
     try {
-      // Parallel fetch
       const [solicitudes, asociados, auxilios] = await Promise.all([
         fetchJson('/api/solicitudes/admin'),
         fetchJson('/api/asociados'),
@@ -194,7 +187,6 @@ const { esAdmin = false } = Astro.props;
       adminCachedAsociados = asociados;
       adminCachedAuxilios = auxilios;
 
-      // Filter
       let filtered = solicitudes;
       if (filterEstado) {
         filtered = solicitudes.filter(s => s.estado === filterEstado);
@@ -227,16 +219,14 @@ const { esAdmin = false } = Astro.props;
       }).join('');
     } catch (err) {
       console.error('Error loading admin solicitudes:', err);
-      container.innerHTML = '<div style="text-align: center; padding: 2rem 1rem; color: var(--red-400); font-size: 13px;">Error al cargar solicitudes. Verifique su conexión.</div>';
+      container.innerHTML = '<div style="text-align: center; padding: 2rem 1rem; color: var(--red-400); font-size: 13px;">Error al cargar solicitudes.</div>';
     }
   }
 
-  // ── Modal ──
   async function openAdminModal(id) {
     const solicitud = adminCachedSolicitudes.find(s => s.$id === id);
     if (!solicitud) return;
 
-    adminCurrentModalSolicitudId = id;
     const asociadoName = getAsociadoName(solicitud.asociadoId);
     const auxName = getAuxilioName(solicitud.auxilioId);
     const estadoLabel = ESTADO_LABELS[solicitud.estado] || solicitud.estado;
@@ -260,7 +250,6 @@ const { esAdmin = false } = Astro.props;
 
     document.getElementById('admin-modal-step').textContent = stepText;
 
-    // Admin actions
     const actions = document.getElementById('admin-modal-actions');
     const isReviewable = solicitud.estado === 'radicada' ||
       solicitud.estado === 'en_estudio' ||
@@ -272,10 +261,8 @@ const { esAdmin = false } = Astro.props;
 
     if (isReviewable) {
       actions.style.display = 'block';
-
       document.getElementById('admin-btn-approve').onclick = () => handleAdminAction(id, 'aprobado');
       document.getElementById('admin-btn-approve').disabled = false;
-
       document.getElementById('admin-btn-deny').onclick = () => handleAdminAction(id, 'negado');
       document.getElementById('admin-btn-deny').disabled = false;
 
@@ -295,10 +282,8 @@ const { esAdmin = false } = Astro.props;
 
   function closeAdminModal() {
     document.getElementById('admin-modal').classList.remove('active');
-    adminCurrentModalSolicitudId = null;
   }
 
-  // ── Admin Actions ──
   async function handleAdminAction(id, accion) {
     const btnApprove = document.getElementById('admin-btn-approve');
     const btnDeny = document.getElementById('admin-btn-deny');
@@ -330,7 +315,6 @@ const { esAdmin = false } = Astro.props;
     }
   }
 
-  // ── Solicitar documentos ──
   function openAdminDocsRequestModal(solicitudId) {
     document.getElementById('admin-docs-request-input').value = '';
     const btnSend = document.getElementById('admin-btn-send-docs-request');
@@ -388,30 +372,22 @@ const { esAdmin = false } = Astro.props;
     }
   }
 
-  // ── Initialization ──
   document.addEventListener('DOMContentLoaded', () => {
-    // Filter change
     document.getElementById('admin-estado-filter').addEventListener('change', () => {
-      const filter = document.getElementById('admin-estado-filter').value;
-      renderAdminSolicitudes(filter);
+      renderAdminSolicitudes(document.getElementById('admin-estado-filter').value);
     });
 
-    // Refresh button
     document.getElementById('btn-admin-refresh').addEventListener('click', () => {
-      const filter = document.getElementById('admin-estado-filter').value;
-      renderAdminSolicitudes(filter);
+      renderAdminSolicitudes(document.getElementById('admin-estado-filter').value);
     });
   });
 
-  // Listen for tab changes to load data when admin panel becomes visible
   window.addEventListener('tabChanged', (e) => {
     if (e.detail.tab === 'admin') {
-      const filter = document.getElementById('admin-estado-filter').value;
-      renderAdminSolicitudes(filter);
+      renderAdminSolicitudes(document.getElementById('admin-estado-filter').value);
     }
   });
 
-  // Expose functions needed by HTML onclick handlers
   window.closeAdminModal = closeAdminModal;
   window.closeAdminDocsRequestModal = closeAdminDocsRequestModal;
   window.openAdminModal = openAdminModal;

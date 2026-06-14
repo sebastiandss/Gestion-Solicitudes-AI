@@ -8,10 +8,8 @@ import ProgramasDisponibles from "../components/views/ProgramasDisponibles.astro
 import Beneficiarios from "../components/views/Beneficiarios.astro";
 import Notificaciones from "../components/views/Notificaciones.astro";
 import AdminPanel from "../components/views/AdminPanel.astro";
+import UserManagement from "../components/views/UserManagement.astro";
 
-// ── SSR: session check via middleware ──
-// La middleware ya protege la ruta y pone locals.user.
-// Este doble check es por si la middleware no está configurada.
 const user = Astro.locals.user;
 if (!user) {
   return Astro.redirect('/login');
@@ -39,4 +37,69 @@ const idInfo = user.cedula
   <Beneficiarios />
   <Notificaciones />
   <AdminPanel esAdmin={Astro.locals.esAdmin ?? false} />
+  <UserManagement />
+
+  <script>
+    window.switchTab = function(tab) {
+      // Ocultar todas
+      const views = ['tramites', 'nueva', 'programas', 'beneficiarios', 'notificaciones', 'admin', 'usuarios'];
+      for (let i = 0; i < views.length; i++) {
+        const el = document.getElementById('view-' + views[i]);
+        if (el) el.style.display = 'none';
+      }
+      // Mostrar la seleccionada
+      const mostrar = document.getElementById('view-' + tab);
+      if (mostrar) mostrar.style.display = 'block';
+      
+      // Actualizar clases de pestañas
+      const tabs = document.querySelectorAll('#mainTabs .tab');
+      for (let i = 0; i < tabs.length; i++) {
+        tabs[i].classList.remove('active');
+      }
+      // Buscar la pestaña clickeada
+      const tabText = {
+        'tramites': 'mis trámites',
+        'nueva': 'nueva solicitud',
+        'programas': 'programas disponibles',
+        'beneficiarios': 'beneficiarios',
+        'notificaciones': 'notificaciones',
+        'admin': 'solicitudes',
+        'usuarios': 'usuarios'
+      };
+      const textoBuscado = tabText[tab];
+      for (let i = 0; i < tabs.length; i++) {
+        if (tabs[i].textContent.trim().toLowerCase() === textoBuscado) {
+          tabs[i].classList.add('active');
+          break;
+        }
+      }
+      
+      // Evento para cargar datos
+      const event = new CustomEvent('tabChanged', { detail: { tab: tab } });
+      window.dispatchEvent(event);
+    };
+    
+    // Inicializar al cargar
+    document.addEventListener('DOMContentLoaded', function() {
+      // Ocultar todas
+      const views = ['tramites', 'nueva', 'programas', 'beneficiarios', 'notificaciones', 'admin', 'usuarios'];
+      for (let i = 0; i < views.length; i++) {
+        const el = document.getElementById('view-' + views[i]);
+        if (el) el.style.display = 'none';
+      }
+      // Mostrar trámites
+      const tramites = document.getElementById('view-tramites');
+      if (tramites) tramites.style.display = 'block';
+      
+      // Activar pestaña trámites
+      const tabs = document.querySelectorAll('#mainTabs .tab');
+      for (let i = 0; i < tabs.length; i++) {
+        const text = tabs[i].textContent.trim().toLowerCase();
+        if (text === 'mis trámites' || text === 'mis tramites') {
+          tabs[i].classList.add('active');
+          break;
+        }
+      }
+    });
+  </script>
 </BaseLayout>

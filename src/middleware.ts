@@ -7,7 +7,6 @@ import type { Asociado } from './lib/fmpi/types';
 const PUBLIC_ROUTES = new Set([
   '/login',
   '/api/auth/login',
-  '/api/auth/register',
 ]);
 
 // Prefijos de ruta que no requieren autenticación
