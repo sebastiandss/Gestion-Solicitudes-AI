@@ -62,6 +62,11 @@
         <input type="text" id="userCedula" class="finput" required />
       </div>
       
+      <div class="form-row-1" style="margin-bottom: 12px;" id="emailDiv">
+        <label class="flabel">Correo electrónico *</label>
+        <input type="email" id="userEmail" class="finput" required />
+      </div>
+      
       <div class="form-row-1" style="margin-bottom: 12px;" id="passwordDiv">
         <label class="flabel">Contraseña *</label>
         <input type="password" id="userPassword" class="finput" />
@@ -235,9 +240,11 @@
         document.getElementById('editUserId').value = data.user.userId;
         document.getElementById('userName').value = data.user.nombre;
         document.getElementById('userCedula').value = data.user.cedula;
+        document.getElementById('userEmail').value = data.user.email || '';
         document.getElementById('userEstado').value = data.user.estado;
         document.getElementById('userIsAdmin').checked = data.user.esAdmin;
         document.getElementById('passwordDiv').style.display = 'none';
+        document.getElementById('emailDiv').style.display = 'block';
         document.getElementById('userModal').style.display = 'flex';
       }
     } catch (err) {
@@ -250,10 +257,12 @@
     document.getElementById('editUserId').value = '';
     document.getElementById('userName').value = '';
     document.getElementById('userCedula').value = '';
+    document.getElementById('userEmail').value = '';
     document.getElementById('userPassword').value = '';
     document.getElementById('userEstado').value = 'activo';
     document.getElementById('userIsAdmin').checked = false;
     document.getElementById('passwordDiv').style.display = 'block';
+    document.getElementById('emailDiv').style.display = 'block';
     document.getElementById('userModal').style.display = 'flex';
   };
 
@@ -263,12 +272,18 @@
     const userId = document.getElementById('editUserId').value;
     const name = document.getElementById('userName').value.trim();
     const cedula = document.getElementById('userCedula').value.trim();
+    const email = document.getElementById('userEmail').value.trim();
     const password = document.getElementById('userPassword').value;
     const estado = document.getElementById('userEstado').value;
     const isAdmin = document.getElementById('userIsAdmin').checked;
 
     if (!name || !cedula) {
       showToast('Nombre y cédula son obligatorios', true);
+      return;
+    }
+
+    if (!userId && !email) {
+      showToast('El correo electrónico es obligatorio', true);
       return;
     }
 
@@ -279,7 +294,7 @@
 
     const url = userId ? `/api/users/${userId}` : '/api/users';
     const method = userId ? 'PUT' : 'POST';
-    const body = userId ? { name, cedula, estado, isAdmin } : { name, cedula, password, estado, isAdmin };
+    const body = userId ? { name, cedula, email, estado, isAdmin } : { name, cedula, email, password, estado, isAdmin };
 
     try {
       const res = await fetch(url, {
